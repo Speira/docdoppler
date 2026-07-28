@@ -7,6 +7,8 @@ import {
   updatePatient,
   createRiskFactorsEntry,
   getLatestRiskFactors,
+  type CreatePatientInput,
+  type RiskFactorField,
 } from "./patients.js";
 
 describe("patients data access", () => {
@@ -77,6 +79,25 @@ describe("patients data access", () => {
     expect(updatePatient(db, 999, { first_name: "Jeanne" })).toBeUndefined();
   });
 
+  it("ignores unknown keys instead of interpolating them into SQL", () => {
+    const db = createConnection(":memory:");
+    const created = createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+    });
+    const maliciousInput = {
+      first_name: "Jeanne",
+      "not_a_column; DROP TABLE patients;--": "x",
+    } as unknown as Partial<CreatePatientInput>;
+    const updated = updatePatient(db, created.id, maliciousInput);
+    expect(updated?.first_name).toBe("Jeanne");
+    expect(updated?.last_name).toBe("Dupont");
+    // The patients table must still exist and be queryable.
+    expect(listPatients(db)).toHaveLength(1);
+  });
+
   it("creates a risk-factors entry with defaults for omitted fields", () => {
     const db = createConnection(":memory:");
     const patient = createPatient(db, {
@@ -89,6 +110,25 @@ describe("patients data access", () => {
     expect(entry.diabetes).toBe(1);
     expect(entry.hypertension).toBe(0);
     expect(entry.patient_id).toBe(patient.id);
+  });
+
+  it("ignores unknown keys instead of interpolating them into SQL", () => {
+    const db = createConnection(":memory:");
+    const patient = createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+    });
+    const maliciousInput = {
+      diabetes: true,
+      "not_a_column; DROP TABLE risk_factors;--": true,
+    } as unknown as Partial<Record<RiskFactorField, boolean>>;
+    const entry = createRiskFactorsEntry(db, patient.id, maliciousInput);
+    expect(entry.diabetes).toBe(1);
+    expect(entry.patient_id).toBe(patient.id);
+    // The risk_factors table must still exist and be queryable.
+    expect(getLatestRiskFactors(db, patient.id)?.id).toBe(entry.id);
   });
 
   it("returns the most recently created risk-factors entry", () => {

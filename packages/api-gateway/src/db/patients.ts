@@ -12,6 +12,8 @@ export const RISK_FACTOR_FIELDS = [
 
 export type RiskFactorField = (typeof RISK_FACTOR_FIELDS)[number];
 
+const PATIENT_FIELDS = ["first_name", "last_name", "dob", "sex"] as const;
+
 export interface PatientRow {
   id: number;
   first_name: string;
@@ -78,7 +80,9 @@ export function updatePatient(
   const existing = getPatient(db, id);
   if (!existing) return undefined;
 
-  const fields = Object.keys(input) as (keyof CreatePatientInput)[];
+  const fields = (Object.keys(input) as (keyof CreatePatientInput)[]).filter(
+    (field) => (PATIENT_FIELDS as readonly string[]).includes(field),
+  );
   if (fields.length === 0) return existing;
 
   const assignments = fields.map((field) => `${field} = ?`).join(", ");
@@ -106,7 +110,9 @@ export function createRiskFactorsEntry(
   patientId: number,
   input: Partial<Record<RiskFactorField, boolean>>,
 ): RiskFactorsRow {
-  const fields = Object.keys(input) as RiskFactorField[];
+  const fields = (Object.keys(input) as RiskFactorField[]).filter((field) =>
+    (RISK_FACTOR_FIELDS as readonly string[]).includes(field),
+  );
   const columns = ["patient_id", ...fields];
   const placeholders = columns.map(() => "?").join(", ");
   const values = [patientId, ...fields.map((field) => (input[field] ? 1 : 0))];
