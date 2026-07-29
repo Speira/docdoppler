@@ -49,16 +49,16 @@ export function createPatientsRouter(db: Database.Database): Router {
 
   router.patch("/:id", (req: Request, res: Response) => {
     const id = parsePatientId(req.params.id as string);
+    if (id === undefined || !getPatient(db, id)) {
+      res.status(404).json({ error: "PATIENT_NOT_FOUND" });
+      return;
+    }
     const result = validateUpdatePatient(req.body);
     if (!result.valid) {
       res.status(400).json({ error: result.error });
       return;
     }
-    const patient = id === undefined ? undefined : updatePatient(db, id, result.data);
-    if (!patient) {
-      res.status(404).json({ error: "PATIENT_NOT_FOUND" });
-      return;
-    }
+    const patient = updatePatient(db, id, result.data);
     res.status(200).json(patient);
   });
 

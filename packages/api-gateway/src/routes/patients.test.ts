@@ -125,6 +125,14 @@ describe("patients routes", () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({ error: "SEX_INVALID" });
     });
+
+    it("returns 404 (not 400) for an unknown patient with an invalid body", async () => {
+      const response = await supertest(app)
+        .patch("/patients/999")
+        .send({ sex: "X" });
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
   });
 
   describe("POST /patients/:id/risk-factors", () => {
@@ -182,6 +190,14 @@ describe("patients routes", () => {
       expect(response.body).toEqual({
         error: "RISK_FACTOR_VALUE_INVALID",
       });
+    });
+
+    it("returns 404 (not 400) for an unknown patient with an invalid body", async () => {
+      const response = await supertest(app)
+        .post("/patients/999/risk-factors")
+        .send({ diabetes: "yes" });
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
     });
   });
 });
