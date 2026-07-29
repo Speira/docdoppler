@@ -1,12 +1,16 @@
 import express, { type Express, type Request, type Response } from "express";
-import { getDb } from "./db/index.js";
+import type Database from "better-sqlite3";
+import { createPatientsRouter } from "./routes/patients.js";
 
-const app: Express = express();
+export function createApp(db: Database.Database): Express {
+  const app: Express = express();
+  app.use(express.json());
 
-getDb();
+  app.use("/patients", createPatientsRouter(db));
 
-app.get("/", (req: Request, res: Response) => {
-  res.send("Hello World!");
-});
+  app.get("/", (req: Request, res: Response) => {
+    res.send("Hello World!");
+  });
 
-app.listen(3000);
+  return app;
+}
