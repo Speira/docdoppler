@@ -126,4 +126,62 @@ describe("patients routes", () => {
       expect(response.body).toEqual({ error: "SEX_INVALID" });
     });
   });
+
+  describe("POST /patients/:id/risk-factors", () => {
+    it("creates a dated risk-factors entry", async () => {
+      const created = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+      });
+      const response = await supertest(app)
+        .post(`/patients/${created.body.id}/risk-factors`)
+        .send({ diabetes: true, hypertension: false });
+      expect(response.status).toBe(201);
+      expect(response.body.diabetes).toBe(1);
+      expect(response.body.hypertension).toBe(0);
+      expect(response.body.patient_id).toBe(created.body.id);
+    });
+
+    it("is reflected as the latest entry on GET /patients/:id", async () => {
+      const created = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+      });
+      await supertest(app)
+        .post(`/patients/${created.body.id}/risk-factors`)
+        .send({ diabetes: true });
+      const response = await supertest(app).get(
+        `/patients/${created.body.id}`,
+      );
+      expect(response.body.riskFactors.diabetes).toBe(1);
+    });
+
+    it("returns 404 for an unknown patient", async () => {
+      const response = await supertest(app)
+        .post("/patients/999/risk-factors")
+        .send({ diabetes: true });
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+
+    it("returns 400 for a non-boolean field value", async () => {
+      const created = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+      });
+      const response = await supertest(app)
+        .post(`/patients/${created.body.id}/risk-factors`)
+        .send({ diabetes: "yes" });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: "RISK_FACTOR_VALUE_INVALID",
+      });
+    });
+  });
 });

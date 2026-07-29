@@ -6,10 +6,12 @@ import {
   listPatients,
   updatePatient,
   getLatestRiskFactors,
+  createRiskFactorsEntry,
 } from "../db/patients.js";
 import {
   validateCreatePatient,
   validateUpdatePatient,
+  validateRiskFactorsEntry,
 } from "../validation/patients.js";
 
 function parsePatientId(rawId: string): number | undefined {
@@ -58,6 +60,20 @@ export function createPatientsRouter(db: Database.Database): Router {
       return;
     }
     res.status(200).json(patient);
+  });
+
+  router.post("/:id/risk-factors", (req: Request, res: Response) => {
+    const id = parsePatientId(req.params.id as string);
+    if (id === undefined || !getPatient(db, id)) {
+      res.status(404).json({ error: "PATIENT_NOT_FOUND" });
+      return;
+    }
+    const result = validateRiskFactorsEntry(req.body);
+    if (!result.valid) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.status(201).json(createRiskFactorsEntry(db, id, result.data));
   });
 
   return router;
