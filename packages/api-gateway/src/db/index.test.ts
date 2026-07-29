@@ -87,6 +87,46 @@ describe("db schema", () => {
     expect(rows).toHaveLength(2);
   });
 
+  it("rejects an invalid smoking value", () => {
+    const db = createConnection(":memory:");
+    const { lastInsertRowid: patientId } = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M");
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO risk_factors (patient_id, smoking) VALUES (?, ?)",
+        )
+        .run(patientId, 2),
+    ).toThrow(/CHECK constraint failed/);
+  });
+
+  it("defaults smoking to 0 and accepts 1", () => {
+    const db = createConnection(":memory:");
+    const { lastInsertRowid: patientId } = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M");
+    const defaulted = db
+      .prepare("INSERT INTO risk_factors (patient_id) VALUES (?)")
+      .run(patientId);
+    const defaultedRow = db
+      .prepare("SELECT smoking FROM risk_factors WHERE id = ?")
+      .get(defaulted.lastInsertRowid) as { smoking: number };
+    expect(defaultedRow.smoking).toBe(0);
+
+    const smoker = db
+      .prepare("INSERT INTO risk_factors (patient_id, smoking) VALUES (?, ?)")
+      .run(patientId, 1);
+    const smokerRow = db
+      .prepare("SELECT smoking FROM risk_factors WHERE id = ?")
+      .get(smoker.lastInsertRowid) as { smoking: number };
+    expect(smokerRow.smoking).toBe(1);
+  });
+
   it("cascades delete from patients to risk_factors", () => {
     const db = createConnection(":memory:");
     const { lastInsertRowid: patientId } = db

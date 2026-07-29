@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS risk_factors (
   vertigo       INTEGER NOT NULL DEFAULT 0 CHECK (vertigo IN (0, 1)),
   carotid_bruit INTEGER NOT NULL DEFAULT 0 CHECK (carotid_bruit IN (0, 1)),
   avc           INTEGER NOT NULL DEFAULT 0 CHECK (avc IN (0, 1)),
+  smoking       INTEGER NOT NULL DEFAULT 0 CHECK (smoking IN (0, 1)),
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
