@@ -8,6 +8,7 @@ export const RISK_FACTOR_FIELDS = [
   "vertigo",
   "carotid_bruit",
   "avc",
+  "smoking",
 ] as const;
 
 export type RiskFactorField = (typeof RISK_FACTOR_FIELDS)[number];
@@ -34,6 +35,7 @@ export interface RiskFactorsRow {
   vertigo: number;
   carotid_bruit: number;
   avc: number;
+  smoking: number;
   created_at: string;
   updated_at: string;
 }

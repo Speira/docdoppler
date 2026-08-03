@@ -112,6 +112,19 @@ describe("patients data access", () => {
     expect(entry.patient_id).toBe(patient.id);
   });
 
+  it("accepts smoking as a risk-factors field", () => {
+    const db = createConnection(":memory:");
+    const patient = createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+    });
+    const entry = createRiskFactorsEntry(db, patient.id, { smoking: true });
+    expect(entry.smoking).toBe(1);
+    expect(entry.diabetes).toBe(0);
+  });
+
   it("ignores unknown keys instead of interpolating them into SQL", () => {
     const db = createConnection(":memory:");
     const patient = createPatient(db, {

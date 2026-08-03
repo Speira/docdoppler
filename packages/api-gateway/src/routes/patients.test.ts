@@ -168,6 +168,20 @@ describe("patients routes", () => {
       expect(response.body.riskFactors.diabetes).toBe(1);
     });
 
+    it("accepts smoking as a risk-factors field", async () => {
+      const created = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+      });
+      const response = await supertest(app)
+        .post(`/patients/${created.body.id}/risk-factors`)
+        .send({ smoking: true });
+      expect(response.status).toBe(201);
+      expect(response.body.smoking).toBe(1);
+    });
+
     it("returns 404 for an unknown patient", async () => {
       const response = await supertest(app)
         .post("/patients/999/risk-factors")

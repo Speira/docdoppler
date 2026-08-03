@@ -99,6 +99,13 @@ describe("validateRiskFactorsEntry", () => {
     });
   });
 
+  it("accepts smoking as a valid field", () => {
+    expect(validateRiskFactorsEntry({ smoking: true })).toEqual({
+      valid: true,
+      data: { smoking: true },
+    });
+  });
+
   it("rejects a non-boolean field value", () => {
     const result = validateRiskFactorsEntry({ diabetes: "yes" });
     expect(result).toEqual({
