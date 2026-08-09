@@ -96,6 +96,11 @@ export function updatePatient(
   return getPatient(db, id);
 }
 
+export function deletePatient(db: Database.Database, id: number): boolean {
+  const { changes } = db.prepare("DELETE FROM patients WHERE id = ?").run(id);
+  return changes > 0;
+}
+
 export function getLatestRiskFactors(
   db: Database.Database,
   patientId: number,

@@ -5,6 +5,7 @@ import {
   getPatient,
   listPatients,
   updatePatient,
+  deletePatient,
   createRiskFactorsEntry,
   getLatestRiskFactors,
   type CreatePatientInput,
@@ -171,5 +172,22 @@ describe("patients data access", () => {
       sex: "M",
     });
     expect(getLatestRiskFactors(db, patient.id)).toBeUndefined();
+  });
+
+  it("deletes a patient", () => {
+    const db = createConnection(":memory:");
+    const patient = createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+    });
+    expect(deletePatient(db, patient.id)).toBe(true);
+    expect(getPatient(db, patient.id)).toBeUndefined();
+  });
+
+  it("returns false when deleting an unknown patient", () => {
+    const db = createConnection(":memory:");
+    expect(deletePatient(db, 999)).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import {
   getPatient,
   listPatients,
   updatePatient,
+  deletePatient,
   getLatestRiskFactors,
   createRiskFactorsEntry,
 } from "../db/patients.js";
@@ -60,6 +61,16 @@ export function createPatientsRouter(db: Database.Database): Router {
     }
     const patient = updatePatient(db, id, result.data);
     res.status(200).json(patient);
+  });
+
+  router.delete("/:id", (req: Request, res: Response) => {
+    const id = parsePatientId(req.params.id as string);
+    if (id === undefined || !getPatient(db, id)) {
+      res.status(404).json({ error: "PATIENT_NOT_FOUND" });
+      return;
+    }
+    deletePatient(db, id);
+    res.sendStatus(204);
   });
 
   router.post("/:id/risk-factors", (req: Request, res: Response) => {

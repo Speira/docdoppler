@@ -1,14 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-export const Route = createFileRoute('/')({ component: Home })
+import { PatientList } from '#/features/patientFeatures/PatientList'
+import { PatientListHelper } from '#/features/patientFeatures/PatientListHelper'
+import { RouteError } from '#/components/route-error'
+import { i18next } from '#/lib/i18n'
 
-function Home() {
-  return (
-    <div className="p-8">
-      <h1 className="text-4xl font-bold">Welcome to TanStack Start</h1>
-      <p className="mt-4 text-lg">
-        Edit <code>src/routes/index.tsx</code> to get started.
-      </p>
-    </div>
-  )
+export const Route = createFileRoute('/')({
+  loader: () => ({ patients: PatientListHelper.listPatients() }),
+  head: () => ({
+    meta: [
+      { title: i18next.t('Accueil — docdoppler') },
+      {
+        name: 'description',
+        content: i18next.t('Liste des patients du cabinet.'),
+      },
+    ],
+  }),
+  errorComponent: ({ error }) => <RouteError error={error} />,
+  component: RouteComponent,
+})
+
+function RouteComponent() {
+  const { patients } = Route.useLoaderData()
+  return <PatientList patientsPromise={patients} />
 }

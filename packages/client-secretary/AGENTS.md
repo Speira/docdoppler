@@ -98,3 +98,23 @@ tanstackIntent:
     run: "pnpm dlx @tanstack/intent@latest load @tanstack/virtual-file-routes#virtual-file-routes"
     for: "Programmatic route tree building as an alternative to filesystem conventions: rootRoute, index, route, layout, physical, defineVirtualSubtreeConfig. Use with TanStack Router plugin's virtualRouteConfig option."
 <!-- intent-skills:end -->
+
+## Architecture: feature-slice design
+
+- Route/page files (e.g. TanStack Router's `src/routes/*.tsx`, Next.js `app/**/page.tsx`, React Router's route modules) must stay **thin**: route config (path, search/param validation, `head`/meta, loaders) plus a small component that reads route state (params/search) and renders a feature component. No form state, business logic, or substantial UI belongs directly in a route file.
+- Feature logic and UI live under `src/features/<domain>/<FeatureName>.tsx` — e.g. `src/features/patient/PatientCreate.tsx`. One file per feature component unless it grows large enough to need its own folder (`src/features/<domain>/<FeatureName>/`).
+- Shared, feature-agnostic code stays outside `features/`: API clients/services in `src/services/`, generic UI primitives (e.g. shadcn components) in `src/components/ui/`, cross-cutting helpers in `src/lib/`.
+- When building a new screen: write the feature component first, then wire a thin route on top of it — never the other way around.
+- Inside each feature folder, split further as needed:
+  - `types.ts` — feature-local types, prefixed with the feature name (`FormValues` → `PatientCreateFormValues`).
+  - `consts.ts` — feature-local constants, also prefixed (`emptyValues` → `patientCreateDefaultValues`, `historyFields` → `patientHistoryFields`, `formSchema` → `patientCreateFormSchema`).
+  - `<FeatureName>Helper.ts` — a class used with static-style access (e.g. `PatientCreateHelper.createPatient(...)`) that holds non-UI logic which would otherwise bloat the container: API orchestration for actions (e.g. `createPatient`, returning just the id of the created/updated record) and data-loading/hydration for edit/reset flows (e.g. `resetPatient`, returning form-ready values). One `<FeatureName>Helper` per container component, added only when there's real logic worth extracting — the container itself should stay limited to form wiring and JSX.
+
+## Imports
+
+- Use the path alias for cross-directory imports instead of relative `../../` paths — e.g. `#/services/patient-service`, `#/components/ui/button`, `#/features/patientFeatures/PatientCreate`. This project has both `#/*` and `@/*` configured in `tsconfig.json` pointing at `./src/*`; use whichever one is already established by the generated/scaffolded code in a given project (here it's `#/`, matching `components.json` and every shadcn-generated file) rather than introducing a second alias.
+- Same-folder sibling imports (e.g. a feature's container importing its own `./consts`, `./types`, `./<FeatureName>Helper`) stay relative — the alias is for crossing directories, not for every import.
+
+## Working style
+
+- Do not guess on architectural forks (screen scope, API access pattern, state-management library, design tokens/styling). Ask a clarifying question before writing code whenever an established convention (like the rule above) doesn't already settle it. Purely mechanical choices (class ordering, variable naming) don't need a question.

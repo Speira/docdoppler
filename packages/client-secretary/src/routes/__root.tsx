@@ -1,18 +1,12 @@
-import {
-  HeadContent,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
-import appCss from '../styles.css?url'
+import appCss from '#/styles.css?url'
+import { Toaster } from '#/components/ui/sonner'
+import { i18next } from '#/lib/i18n'
 
-import type { ApolloClientIntegration } from '@apollo/client-integration-tanstack-start'
-
-interface MyRouterContext extends ApolloClientIntegration.RouterContext {}
-
-export const Route = createRootRouteWithContext<MyRouterContext>()({
+export const Route = createRootRoute({
   head: () => ({
     meta: [
       {
@@ -23,7 +17,13 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: i18next.t('docdoppler — Secrétariat'),
+      },
+      {
+        name: 'description',
+        content: i18next.t(
+          "Accueil patient : identité et antécédents médicaux, cabinet d'écho-Doppler vasculaire.",
+        ),
       },
     ],
     links: [
@@ -38,12 +38,13 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <head>
         <HeadContent />
       </head>
       <body>
         {children}
+        <Toaster />
         <TanStackDevtools
           config={{
             position: 'bottom-right',

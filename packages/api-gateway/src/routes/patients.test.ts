@@ -214,4 +214,36 @@ describe("patients routes", () => {
       expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
     });
   });
+
+  describe("DELETE /patients/:id", () => {
+    it("deletes a patient and makes it unavailable afterwards", async () => {
+      const created = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+      });
+      const response = await supertest(app).delete(
+        `/patients/${created.body.id}`,
+      );
+      expect(response.status).toBe(204);
+
+      const getResponse = await supertest(app).get(
+        `/patients/${created.body.id}`,
+      );
+      expect(getResponse.status).toBe(404);
+    });
+
+    it("returns 404 for an unknown patient", async () => {
+      const response = await supertest(app).delete("/patients/999");
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+
+    it("returns 404 for a non-numeric id", async () => {
+      const response = await supertest(app).delete("/patients/abc");
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+  });
 });
