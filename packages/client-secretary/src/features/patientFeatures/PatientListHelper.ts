@@ -23,8 +23,8 @@ export class PatientListHelper {
     )
   }
 
-  static formatDob(dob: string): string {
-    const [year, month, day] = dob.split('-')
+  static formatDate(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-')
     return `${day}/${month}/${year}`
   }
 

@@ -49,3 +49,16 @@
 - Editable: secretary can change it via date picker for advance bookings
 - Purpose: drives DICOM worklist filtering (see dicom-worklist-bridge.md) and,
   later, patient list sorting/filtering by appointment date
+
+## IPS (Index de Pression Systolique / ABI) — planned, not yet built
+
+- Doctor requested this be added to findings
+- Calculation: IPS = pression systolique cheville (highest) / pression systolique
+  bras (highest), calculated per limb
+- This is a deterministic formula — auto-calculate from two input fields
+  (ankle pressure, arm pressure), don't require the doctor to compute by hand
+- OPEN QUESTION: confirm exact formula variant with doctor (which ankle artery,
+  which arm, tie-breaking rules) before implementing — ABI has minor protocol
+  variations across clinical guidelines
+- NOT an AI/LLM interpretation feature — this is arithmetic on doctor-entered
+  values, no clinical judgment automation
