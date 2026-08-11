@@ -8,6 +8,7 @@ export class PatientEditHelper {
       first_name: patient.first_name,
       last_name: patient.last_name,
       dob: patient.dob,
+      exam_date: patient.exam_date,
       sex: patient.sex,
       diabetes: patient.riskFactors?.diabetes === 1,
       hypertension: patient.riskFactors?.hypertension === 1,
@@ -29,6 +30,7 @@ export class PatientEditHelper {
       first_name: values.first_name.trim(),
       last_name: values.last_name.trim(),
       dob: values.dob,
+      exam_date: values.exam_date,
       sex: values.sex,
     })
     await patientService.addRiskFactors(patient.id, {

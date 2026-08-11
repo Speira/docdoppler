@@ -8,6 +8,7 @@ export type ValidationErrorCode =
   | "DOB_IN_FUTURE"
   | "SEX_REQUIRED"
   | "SEX_INVALID"
+  | "EXAM_DATE_INVALID"
   | "RISK_FACTOR_VALUE_INVALID";
 
 export type ValidationResult<T> =
@@ -19,18 +20,19 @@ export interface CreatePatientInput {
   last_name: string;
   dob: string;
   sex: "M" | "F";
+  exam_date: string;
 }
 
 export type UpdatePatientInput = Partial<CreatePatientInput>;
 
 export type RiskFactorsInput = Partial<Record<RiskFactorField, boolean>>;
 
-const DOB_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-function isValidDob(dob: string): boolean {
-  if (!DOB_PATTERN.test(dob)) return false;
-  const [year, month, day] = dob.split("-").map(Number);
-  const date = new Date(`${dob}T00:00:00Z`);
+function isValidIsoDate(value: string): boolean {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return false;
   return (
     date.getUTCFullYear() === year &&
@@ -39,9 +41,12 @@ function isValidDob(dob: string): boolean {
   );
 }
 
+function todayIsoString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function isDobInFuture(dob: string): boolean {
-  const today = new Date().toISOString().slice(0, 10);
-  return dob > today;
+  return dob > todayIsoString();
 }
 
 export function validateCreatePatient(
@@ -58,7 +63,7 @@ export function validateCreatePatient(
   if (typeof b.dob !== "string" || b.dob.trim().length === 0) {
     return { valid: false, error: "DOB_REQUIRED" };
   }
-  if (!isValidDob(b.dob)) {
+  if (!isValidIsoDate(b.dob)) {
     return { valid: false, error: "DOB_INVALID" };
   }
   if (isDobInFuture(b.dob)) {
@@ -70,6 +75,13 @@ export function validateCreatePatient(
   if (b.sex !== "M" && b.sex !== "F") {
     return { valid: false, error: "SEX_INVALID" };
   }
+  let examDate = todayIsoString();
+  if (b.exam_date !== undefined) {
+    if (typeof b.exam_date !== "string" || !isValidIsoDate(b.exam_date)) {
+      return { valid: false, error: "EXAM_DATE_INVALID" };
+    }
+    examDate = b.exam_date;
+  }
 
   return {
     valid: true,
@@ -78,6 +90,7 @@ export function validateCreatePatient(
       last_name: b.last_name.trim(),
       dob: b.dob,
       sex: b.sex,
+      exam_date: examDate,
     },
   };
 }
@@ -104,7 +117,7 @@ export function validateUpdatePatient(
     data.last_name = b.last_name.trim();
   }
   if (b.dob !== undefined) {
-    if (typeof b.dob !== "string" || !isValidDob(b.dob)) {
+    if (typeof b.dob !== "string" || !isValidIsoDate(b.dob)) {
       return { valid: false, error: "DOB_INVALID" };
     }
     if (isDobInFuture(b.dob)) {
@@ -117,6 +130,12 @@ export function validateUpdatePatient(
       return { valid: false, error: "SEX_INVALID" };
     }
     data.sex = b.sex;
+  }
+  if (b.exam_date !== undefined) {
+    if (typeof b.exam_date !== "string" || !isValidIsoDate(b.exam_date)) {
+      return { valid: false, error: "EXAM_DATE_INVALID" };
+    }
+    data.exam_date = b.exam_date;
   }
 
   return { valid: true, data };

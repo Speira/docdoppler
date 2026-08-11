@@ -7,6 +7,7 @@ export class PatientCreateHelper {
       first_name: values.first_name.trim(),
       last_name: values.last_name.trim(),
       dob: values.dob,
+      exam_date: values.exam_date,
       sex: values.sex,
     })
     await patientService.addRiskFactors(patient.id, {

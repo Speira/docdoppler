@@ -105,6 +105,34 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
             )}
           </form.Field>
 
+          <form.Field name="exam_date">
+            {(field) => (
+              <div className="grid gap-2">
+                <Label htmlFor={field.name}>
+                  {t("Date de l'examen")} <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="date"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={!field.state.meta.isValid}
+                />
+                {field.state.meta.isTouched && !field.state.meta.isValid && (
+                  <p className="text-sm text-destructive">
+                    {field.state.meta.errors
+                      .map((error) =>
+                        error?.message ? t(error.message) : error?.message,
+                      )
+                      .join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
           <p className="text-xs text-muted-foreground">
             <span className="text-destructive">*</span> {t('champ requis')}
           </p>

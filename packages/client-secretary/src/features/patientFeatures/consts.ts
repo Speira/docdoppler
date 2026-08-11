@@ -2,19 +2,22 @@ import { z } from 'zod'
 
 import type { PatientFormValues } from './types'
 
-export const patientFormDefaultValues: PatientFormValues = {
-  first_name: '',
-  last_name: '',
-  dob: '',
-  sex: 'F',
-  diabetes: false,
-  hypertension: false,
-  cholesterol: false,
-  obesity: false,
-  vertigo: false,
-  carotid_bruit: false,
-  avc: false,
-  smoking: false,
+export function getPatientFormDefaultValues(): PatientFormValues {
+  return {
+    first_name: '',
+    last_name: '',
+    dob: '',
+    exam_date: new Date().toISOString().slice(0, 10),
+    sex: 'F',
+    diabetes: false,
+    hypertension: false,
+    cholesterol: false,
+    obesity: false,
+    vertigo: false,
+    carotid_bruit: false,
+    avc: false,
+    smoking: false,
+  }
 }
 
 type HistoryField = { key: keyof PatientFormValues; label: string }
@@ -44,6 +47,7 @@ export const patientFormSchema = z.object({
   first_name: z.string().trim().min(1, 'Le prénom est requis.'),
   last_name: z.string().trim().min(1, 'Le nom est requis.'),
   dob: z.string().min(1, 'La date de naissance est requise.'),
+  exam_date: z.string().min(1, "La date de l'examen est requise."),
   sex: z.enum(['M', 'F']),
   diabetes: z.boolean(),
   hypertension: z.boolean(),

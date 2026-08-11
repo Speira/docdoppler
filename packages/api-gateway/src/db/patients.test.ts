@@ -20,11 +20,28 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-09-01",
     });
     expect(patient.id).toBeTypeOf("number");
     expect(patient.first_name).toBe("Jean");
     expect(patient.sex).toBe("M");
+    expect(patient.exam_date).toBe("2026-09-01");
     expect(patient.created_at).toBeTruthy();
+  });
+
+  it("updates exam_date", () => {
+    const db = createConnection(":memory:");
+    const created = createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-09-01",
+    });
+    const updated = updatePatient(db, created.id, {
+      exam_date: "2026-10-15",
+    });
+    expect(updated?.exam_date).toBe("2026-10-15");
   });
 
   it("gets a patient by id", () => {
@@ -34,6 +51,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     const found = getPatient(db, created.id);
     expect(found?.first_name).toBe("Jean");
@@ -51,12 +69,14 @@ describe("patients data access", () => {
       last_name: "Martin",
       dob: "1970-01-01",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     createPatient(db, {
       first_name: "Alice",
       last_name: "Durand",
       dob: "1980-01-01",
       sex: "F",
+      exam_date: "2026-01-15",
     });
     const rows = listPatients(db);
     expect(rows.map((r) => r.last_name)).toEqual(["Durand", "Martin"]);
@@ -69,6 +89,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     const updated = updatePatient(db, created.id, { first_name: "Jeanne" });
     expect(updated?.first_name).toBe("Jeanne");
@@ -87,6 +108,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     const maliciousInput = {
       first_name: "Jeanne",
@@ -106,6 +128,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     const entry = createRiskFactorsEntry(db, patient.id, { diabetes: true });
     expect(entry.diabetes).toBe(1);
@@ -120,6 +143,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     const entry = createRiskFactorsEntry(db, patient.id, { smoking: true });
     expect(entry.smoking).toBe(1);
@@ -133,6 +157,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     const maliciousInput = {
       diabetes: true,
@@ -152,6 +177,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     createRiskFactorsEntry(db, patient.id, { diabetes: true });
     const latest = createRiskFactorsEntry(db, patient.id, {
@@ -170,6 +196,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     expect(getLatestRiskFactors(db, patient.id)).toBeUndefined();
   });
@@ -181,6 +208,7 @@ describe("patients data access", () => {
       last_name: "Dupont",
       dob: "1958-03-12",
       sex: "M",
+      exam_date: "2026-01-15",
     });
     expect(deletePatient(db, patient.id)).toBe(true);
     expect(getPatient(db, patient.id)).toBeUndefined();

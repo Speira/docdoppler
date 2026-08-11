@@ -13,7 +13,13 @@ export const RISK_FACTOR_FIELDS = [
 
 export type RiskFactorField = (typeof RISK_FACTOR_FIELDS)[number];
 
-const PATIENT_FIELDS = ["first_name", "last_name", "dob", "sex"] as const;
+const PATIENT_FIELDS = [
+  "first_name",
+  "last_name",
+  "dob",
+  "sex",
+  "exam_date",
+] as const;
 
 export interface PatientRow {
   id: number;
@@ -21,6 +27,7 @@ export interface PatientRow {
   last_name: string;
   dob: string;
   sex: "M" | "F";
+  exam_date: string;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +52,7 @@ export interface CreatePatientInput {
   last_name: string;
   dob: string;
   sex: "M" | "F";
+  exam_date: string;
 }
 
 export function createPatient(
@@ -53,9 +61,15 @@ export function createPatient(
 ): PatientRow {
   const { lastInsertRowid } = db
     .prepare(
-      "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+      "INSERT INTO patients (first_name, last_name, dob, sex, exam_date) VALUES (?, ?, ?, ?, ?)",
     )
-    .run(input.first_name, input.last_name, input.dob, input.sex);
+    .run(
+      input.first_name,
+      input.last_name,
+      input.dob,
+      input.sex,
+      input.exam_date,
+    );
   return getPatient(db, Number(lastInsertRowid)) as PatientRow;
 }
 

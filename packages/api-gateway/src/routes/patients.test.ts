@@ -27,6 +27,42 @@ describe("patients routes", () => {
       expect(response.body.id).toBeTypeOf("number");
     });
 
+    it("defaults exam_date to today when omitted", async () => {
+      const response = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+      });
+      const today = new Date().toISOString().slice(0, 10);
+      expect(response.status).toBe(201);
+      expect(response.body.exam_date).toBe(today);
+    });
+
+    it("accepts an explicit exam_date for advance bookings", async () => {
+      const response = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+        exam_date: "2026-12-01",
+      });
+      expect(response.status).toBe(201);
+      expect(response.body.exam_date).toBe("2026-12-01");
+    });
+
+    it("rejects a malformed exam_date", async () => {
+      const response = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+        exam_date: "01/12/2026",
+      });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: "EXAM_DATE_INVALID" });
+    });
+
     it("rejects a payload missing first_name", async () => {
       const response = await supertest(app).post("/patients").send({
         last_name: "Dupont",
@@ -132,6 +168,20 @@ describe("patients routes", () => {
         .send({ sex: "X" });
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+
+    it("updates exam_date for an advance booking", async () => {
+      const created = await supertest(app).post("/patients").send({
+        first_name: "Jean",
+        last_name: "Dupont",
+        dob: "1958-03-12",
+        sex: "M",
+      });
+      const response = await supertest(app)
+        .patch(`/patients/${created.body.id}`)
+        .send({ exam_date: "2026-12-01" });
+      expect(response.status).toBe(200);
+      expect(response.body.exam_date).toBe("2026-12-01");
     });
   });
 

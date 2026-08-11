@@ -7,6 +7,7 @@ export interface PatientRecord {
   first_name: string
   last_name: string
   dob: string
+  exam_date: string
   sex: Sex
   created_at: string
   updated_at: string
@@ -35,6 +36,7 @@ export interface CreatePatientInput {
   first_name: string
   last_name: string
   dob: string
+  exam_date: string
   sex: Sex
 }
 
@@ -59,6 +61,7 @@ export type ApiErrorCode =
   | "DOB_IN_FUTURE"
   | "SEX_REQUIRED"
   | "SEX_INVALID"
+  | "EXAM_DATE_INVALID"
   | "RISK_FACTOR_VALUE_INVALID"
   | "PATIENT_NOT_FOUND"
   | "UNKNOWN_ERROR"
@@ -78,6 +81,7 @@ export const apiErrorLabels: Record<ApiErrorCode, string> = {
   DOB_IN_FUTURE: "La date de naissance ne peut pas être dans le futur.",
   SEX_REQUIRED: "Le sexe est requis.",
   SEX_INVALID: "Le sexe est invalide.",
+  EXAM_DATE_INVALID: "La date de l'examen est invalide.",
   RISK_FACTOR_VALUE_INVALID: "Une valeur d'antécédent est invalide.",
   PATIENT_NOT_FOUND: "Patient introuvable.",
   UNKNOWN_ERROR: "Une erreur inattendue est survenue.",

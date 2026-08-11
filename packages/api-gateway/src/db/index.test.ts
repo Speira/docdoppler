@@ -1,5 +1,6 @@
+import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-import { createConnection } from "./index.js";
+import { createConnection, ensureExamDateColumn } from "./index.js";
 
 describe("db schema", () => {
   it("creates the patients and risk_factors tables", () => {
@@ -125,6 +126,71 @@ describe("db schema", () => {
       .prepare("SELECT smoking FROM risk_factors WHERE id = ?")
       .get(smoker.lastInsertRowid) as { smoking: number };
     expect(smokerRow.smoking).toBe(1);
+  });
+
+  it("creates fresh patients rows with exam_date defaulted to today", () => {
+    const db = createConnection(":memory:");
+    const { lastInsertRowid } = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M");
+    const patient = db
+      .prepare("SELECT exam_date FROM patients WHERE id = ?")
+      .get(lastInsertRowid) as { exam_date: string };
+    const today = new Date().toISOString().slice(0, 10);
+    expect(patient.exam_date).toBe(today);
+  });
+
+  it("adds an exam_date column to a pre-existing patients table lacking it", () => {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE patients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        dob TEXT NOT NULL,
+        sex TEXT NOT NULL
+      );
+    `);
+    db.prepare(
+      "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+    ).run("Jean", "Dupont", "1958-03-12", "M");
+
+    ensureExamDateColumn(db);
+
+    const columns = db
+      .prepare("PRAGMA table_info(patients)")
+      .all()
+      .map((c) => (c as { name: string }).name);
+    expect(columns).toContain("exam_date");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const backfilled = db
+      .prepare("SELECT exam_date FROM patients")
+      .get() as { exam_date: string };
+    expect(backfilled.exam_date).toBe(today);
+  });
+
+  it("is a no-op when the patients table already has exam_date", () => {
+    const db = createConnection(":memory:");
+    expect(() => ensureExamDateColumn(db)).not.toThrow();
+  });
+
+  it("does not overwrite an existing exam_date when called again", () => {
+    const db = createConnection(":memory:");
+    const { lastInsertRowid } = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex, exam_date) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M", "2020-01-01");
+
+    ensureExamDateColumn(db);
+
+    const patient = db
+      .prepare("SELECT exam_date FROM patients WHERE id = ?")
+      .get(lastInsertRowid) as { exam_date: string };
+    expect(patient.exam_date).toBe("2020-01-01");
   });
 
   it("cascades delete from patients to risk_factors", () => {

@@ -57,6 +57,30 @@ describe("validateCreatePatient", () => {
     const result = validateCreatePatient({ ...valid, sex: "X" });
     expect(result).toEqual({ valid: false, error: "SEX_INVALID" });
   });
+
+  it("defaults exam_date to today when omitted", () => {
+    const result = validateCreatePatient(valid);
+    const today = new Date().toISOString().slice(0, 10);
+    expect(result).toEqual({ valid: true, data: { ...valid, exam_date: today } });
+  });
+
+  it("accepts an explicit exam_date", () => {
+    const result = validateCreatePatient({ ...valid, exam_date: "2026-09-01" });
+    expect(result).toEqual({
+      valid: true,
+      data: { ...valid, exam_date: "2026-09-01" },
+    });
+  });
+
+  it("rejects a malformed exam_date", () => {
+    const result = validateCreatePatient({ ...valid, exam_date: "01/09/2026" });
+    expect(result).toEqual({ valid: false, error: "EXAM_DATE_INVALID" });
+  });
+
+  it("rejects an impossible calendar exam_date", () => {
+    const result = validateCreatePatient({ ...valid, exam_date: "2026-02-30" });
+    expect(result).toEqual({ valid: false, error: "EXAM_DATE_INVALID" });
+  });
 });
 
 describe("validateUpdatePatient", () => {
@@ -84,6 +108,25 @@ describe("validateUpdatePatient", () => {
   it("rejects a malformed dob", () => {
     const result = validateUpdatePatient({ dob: "not-a-date" });
     expect(result).toEqual({ valid: false, error: "DOB_INVALID" });
+  });
+
+  it("accepts a valid exam_date", () => {
+    expect(validateUpdatePatient({ exam_date: "2026-09-01" })).toEqual({
+      valid: true,
+      data: { exam_date: "2026-09-01" },
+    });
+  });
+
+  it("rejects a malformed exam_date", () => {
+    const result = validateUpdatePatient({ exam_date: "not-a-date" });
+    expect(result).toEqual({ valid: false, error: "EXAM_DATE_INVALID" });
+  });
+
+  it("leaves exam_date untouched when omitted", () => {
+    expect(validateUpdatePatient({ first_name: "Jeanne" })).toEqual({
+      valid: true,
+      data: { first_name: "Jeanne" },
+    });
   });
 });
 

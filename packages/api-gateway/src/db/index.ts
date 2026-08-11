@@ -12,7 +12,23 @@ export function createConnection(dbPath: string): Database.Database {
   const db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
   db.exec(readFileSync(SCHEMA_PATH, "utf8"));
+  ensureExamDateColumn(db);
   return db;
+}
+
+export function ensureExamDateColumn(db: Database.Database): void {
+  const columns = db.prepare("PRAGMA table_info(patients)").all() as {
+    name: string;
+  }[];
+  const hasExamDate = columns.some((column) => column.name === "exam_date");
+  if (!hasExamDate) {
+    // SQLite's ALTER TABLE ADD COLUMN only allows a constant literal default
+    // (CURRENT_DATE and expressions are rejected), so backfill in a second step.
+    // Backfilled rows get today's date (the migration date) as a placeholder,
+    // not their actual historical exam date, which this schema has no record of.
+    db.exec("ALTER TABLE patients ADD COLUMN exam_date TEXT NOT NULL DEFAULT ''");
+    db.exec("UPDATE patients SET exam_date = CURRENT_DATE");
+  }
 }
 
 let instance: Database.Database | undefined;

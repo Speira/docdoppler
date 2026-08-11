@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS patients (
   last_name  TEXT NOT NULL,
   dob        TEXT NOT NULL,
   sex        TEXT NOT NULL CHECK (sex IN ('M', 'F')),
+  exam_date  TEXT NOT NULL DEFAULT CURRENT_DATE,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

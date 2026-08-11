@@ -4,6 +4,7 @@ export type PatientFormValues = {
   first_name: string
   last_name: string
   dob: string
+  exam_date: string
   sex: Sex
   diabetes: boolean
   hypertension: boolean

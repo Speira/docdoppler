@@ -7,7 +7,7 @@ import { PatientCreateHelper } from './PatientCreateHelper'
 import { PatientForm } from './PatientForm'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 import { usePatientForm } from './usePatientForm'
-import { patientFormDefaultValues } from './consts'
+import { getPatientFormDefaultValues } from './consts'
 import { apiErrorMessage } from '#/services/patient-service'
 import { Button } from '#/components/ui/button'
 
@@ -17,7 +17,7 @@ export function PatientCreate() {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const bypassUnsavedGuard = useRef(false)
 
-  const form = usePatientForm(patientFormDefaultValues, async (values) => {
+  const form = usePatientForm(getPatientFormDefaultValues(), async (values) => {
     try {
       const id = await PatientCreateHelper.createPatient(values)
       toast.success(
