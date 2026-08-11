@@ -25,3 +25,9 @@
 - patients: id, first_name, last_name, dob, sex
 - risk_factors: patient_id, diabetes, hypertension, cholesterol, obesity, vertigo, carotid_bruit, avc (booleans)
 - reports: patient_id, findings (per vessel type), created_at
+
+## Additional specs
+
+- Report module (doctor-facing findings + PDF): see docs/report-module.md
+- DICOM Worklist bridge: see docs/dicom-worklist-bridge.md — DO NOT wire this into
+  the main app until explicitly instructed; bridge is unvalidated (see file for status)

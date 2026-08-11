@@ -31,3 +31,7 @@ Last verified: 2026-07-28, on-site at clinic
 - Test actual worklist query (Patient → Worklist) with hardcoded test patient
 - Determine whether pynetdicom SCP needs to bind AE Title "mindray" as an accepted caller,
   or the Mindray needs a specific AE Title configured on its side for our SCP — TBD
+
+## Confirmed Requirements
+
+- Doctor asked for the addition of the smoking risk factor

@@ -16,7 +16,6 @@
   "chosenAddOns": [
     "eslint",
     "form",
-    "shadcn",
-    "apollo-client"
+    "shadcn"
   ]
 }
