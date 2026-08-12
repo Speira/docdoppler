@@ -40,6 +40,16 @@ Environment variables (all optional, shown with their defaults):
 - `BRIDGE_AE_TITLE` — AE title this SCP presents to callers (default `DOCDOPPLER`)
 - `BRIDGE_PORT` — port to listen on (default `11112`)
 - `BRIDGE_WORKLIST_URL` — the api-gateway worklist endpoint (default `http://localhost:3000/worklist`)
+- `BRIDGE_BIND_HOST` — interface to listen on (default `0.0.0.0`, i.e. all interfaces). Set this to the clinic machine's specific LAN IP once known, so the SCP isn't also reachable over other interfaces (e.g. a laptop's Wi-Fi or VPN).
+- `BRIDGE_REQUIRE_CALLED_AET` — set to `1` to reject associations that don't address this SCP by `BRIDGE_AE_TITLE`. Default off (any called AE title accepted).
+- `BRIDGE_ALLOWED_CALLING_AETS` — comma-separated allowlist of AE titles permitted to associate (e.g. `mindray`). Default empty (any calling AE title accepted).
+
+These three default to permissive because the correct values are unconfirmed
+against the real Mindray unit (see the checklist below) — this SCP serves
+patient identity data (name, DOB, sex) over C-FIND, so once the Mindray's
+actual calling AE title and network position are confirmed on-site, set
+`BRIDGE_BIND_HOST` and `BRIDGE_ALLOWED_CALLING_AETS` to lock it down before
+any real use.
 
 ## On-site validation checklist (not yet done)
 
@@ -47,3 +57,5 @@ Environment variables (all optional, shown with their defaults):
 - [ ] C-FIND (Patient → Worklist) from the Mindray console returns a test patient
 - [ ] Confirm whether Mindray requires a specific AE title from this SCP, or accepts any registered device
 - [ ] Confirm purpose of "Param. service DICOM" / "Déf stratégie DICOM" buttons
+- [ ] Confirm the Mindray's calling AE title for worklist queries (docs say `mindray` for its own DICOM identity — verify this is what it presents as calling AE title on a C-FIND), then set `BRIDGE_ALLOWED_CALLING_AETS`
+- [ ] Set `BRIDGE_BIND_HOST` to the bridge machine's actual LAN IP

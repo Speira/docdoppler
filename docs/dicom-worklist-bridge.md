@@ -1,5 +1,25 @@
 # DICOM Worklist Bridge — Specification
 
+## Implementation status (2026-08-12)
+
+Code exists: `packages/dicom-bridge` (Python, pynetdicom) implements C-ECHO
+and C-FIND, and `packages/api-gateway` exposes `GET /worklist?date=` for it
+to call. See `packages/dicom-bridge/README.md` for setup, the security
+config (bind host / AE-title allowlisting — off by default, see below), and
+the on-site validation checklist. Design rationale:
+`docs/superpowers/specs/2026-08-12-dicom-worklist-bridge-design.md`.
+
+The actual implementation is **pull-based**, not push-based: rather than
+"on patient save, push into the SCP's dataset" (as described under "Bridge
+architecture" below), the SCP calls `GET /worklist` on demand when it
+receives a C-FIND, reading current data each time. No push path exists or
+is planned — this is simpler and means there's nothing to keep in sync.
+
+Still true regardless of this implementation: C-ECHO and C-FIND have **not**
+been tested against the real Mindray unit, and "save patient" is **not**
+wired to this module. Everything under "Not yet confirmed" and "Explicitly
+out of scope" below still applies.
+
 ## Confirmed Mindray configuration (verified on-site 2026-07-28)
 
 - DICOM Liste de travail (MWL): Installé — no license purchase needed
