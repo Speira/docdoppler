@@ -22,7 +22,7 @@
 
 ## Data model
 
-- patients: id, first_name, last_name, dob, sex
+- patients: id, first_name, last_name, dob, sex, exam_date
 - risk_factors: patient_id, diabetes, hypertension, cholesterol, obesity, vertigo, carotid_bruit, avc (booleans)
 - reports: patient_id, findings (per vessel type), created_at
 

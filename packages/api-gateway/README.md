@@ -10,20 +10,20 @@ All bodies are JSON. All errors are `{ "error": "CODE_NAME" }` — no message te
 
 Create a patient.
 
-Body (all required):
+Body (`exam_date` optional, everything else required):
 ```json
-{ "first_name": "Jean", "last_name": "Dupont", "dob": "1958-03-12", "sex": "M" }
+{ "first_name": "Jean", "last_name": "Dupont", "dob": "1958-03-12", "sex": "M", "exam_date": "2026-09-01" }
 ```
-`sex` is `"M"` or `"F"`. `dob` is `YYYY-MM-DD`, must be a real calendar date, not in the future.
+`sex` is `"M"` or `"F"`. `dob` is `YYYY-MM-DD`, must be a real calendar date, not in the future. `exam_date` is `YYYY-MM-DD`, must be a real calendar date; if omitted, defaults server-side to today's date. Unlike `dob`, it may be in the future (advance bookings).
 
-- `201` → the created patient row: `{ id, first_name, last_name, dob, sex, created_at, updated_at }`
-- `400` → `FIRST_NAME_REQUIRED` | `LAST_NAME_REQUIRED` | `DOB_REQUIRED` | `DOB_INVALID` | `DOB_IN_FUTURE` | `SEX_REQUIRED` | `SEX_INVALID`
+- `201` → the created patient row: `{ id, first_name, last_name, dob, sex, exam_date, created_at, updated_at }`
+- `400` → `FIRST_NAME_REQUIRED` | `LAST_NAME_REQUIRED` | `DOB_REQUIRED` | `DOB_INVALID` | `DOB_IN_FUTURE` | `SEX_REQUIRED` | `SEX_INVALID` | `EXAM_DATE_INVALID`
 
 ### `GET /patients`
 
 List all patients, ordered by `last_name` then `first_name`.
 
-- `200` → `[{ id, first_name, last_name, dob, sex, created_at, updated_at }, ...]`
+- `200` → `[{ id, first_name, last_name, dob, sex, exam_date, created_at, updated_at }, ...]`
 
 ### `GET /patients/:id`
 
@@ -32,9 +32,9 @@ List all patients, ordered by `last_name` then `first_name`.
 
 ### `PATCH /patients/:id`
 
-Partial update — send only the fields that changed. Same field rules as create.
+Partial update — send only the fields that changed. Same field rules as create, except `exam_date` is never defaulted here — omit it to leave it unchanged.
 
-Body: any subset of `{ first_name, last_name, dob, sex }`.
+Body: any subset of `{ first_name, last_name, dob, sex, exam_date }`.
 
 - `200` → the updated patient row
 - `404` → `PATIENT_NOT_FOUND`
