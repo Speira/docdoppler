@@ -8,6 +8,7 @@
 - French UI labels throughout.
 - Do not implement MSSanté, Doctolib, or patient-portal features — these are explicitly out of scope, handled manually by clinic staff outside this app.
 - DICOM/Modality Worklist integration is a separate, gated module — do not wire it into the main app flow unless explicitly asked. See docs/architecture.md.
+- Update the doc (related README.md) each time a big task is done.
 
 ## Stack
 
@@ -22,12 +23,15 @@
 
 ## Data model
 
-- patients: id, first_name, last_name, dob, sex, exam_date
-- risk_factors: patient_id, diabetes, hypertension, cholesterol, obesity, vertigo, carotid_bruit, avc (booleans)
+- patients: id, first_name, last_name, dob, sex, exam_date, accession_number
+- risk_factors: patient_id, diabetes, hypertension, cholesterol, obesity, vertigo, carotid_bruit, avc, smoking (booleans)
 - reports: patient_id, findings (per vessel type), created_at
 
 ## Additional specs
 
 - Report module (doctor-facing findings + PDF): see docs/report-module.md
-- DICOM Worklist bridge: see docs/dicom-worklist-bridge.md — DO NOT wire this into
-  the main app until explicitly instructed; bridge is unvalidated (see file for status)
+- DICOM Worklist bridge: see docs/dicom-worklist-bridge.md — the standalone SCP
+  (`packages/dicom-bridge`) and its `GET /worklist` endpoint on `api-gateway` are
+  implemented and tested, but DO NOT wire this into the main app (no "save
+  patient" → push) until explicitly instructed; bridge is unvalidated against
+  the real Mindray unit (see file for status)
