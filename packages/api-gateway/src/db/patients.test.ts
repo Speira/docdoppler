@@ -4,6 +4,7 @@ import {
   createPatient,
   getPatient,
   listPatients,
+  listPatientsByExamDate,
   updatePatient,
   deletePatient,
   createRiskFactorsEntry,
@@ -217,5 +218,90 @@ describe("patients data access", () => {
   it("returns false when deleting an unknown patient", () => {
     const db = createConnection(":memory:");
     expect(deletePatient(db, 999)).toBe(false);
+  });
+
+  it("generates an accession_number in YYYYMMDD-NNN format on creation", () => {
+    const db = createConnection(":memory:");
+    const patient = createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-08-12",
+    });
+    expect(patient.accession_number).toBe("20260812-001");
+  });
+
+  it("increments the accession_number sequence for patients sharing an exam_date", () => {
+    const db = createConnection(":memory:");
+    createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-08-12",
+    });
+    const second = createPatient(db, {
+      first_name: "Alice",
+      last_name: "Martin",
+      dob: "1980-01-01",
+      sex: "F",
+      exam_date: "2026-08-12",
+    });
+    expect(second.accession_number).toBe("20260812-002");
+  });
+
+  it("resets the accession_number sequence for a different exam_date", () => {
+    const db = createConnection(":memory:");
+    createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-08-12",
+    });
+    const other = createPatient(db, {
+      first_name: "Alice",
+      last_name: "Martin",
+      dob: "1980-01-01",
+      sex: "F",
+      exam_date: "2026-08-13",
+    });
+    expect(other.accession_number).toBe("20260813-001");
+  });
+});
+
+describe("listPatientsByExamDate", () => {
+  it("returns only patients matching the given exam_date, ordered by created_at", () => {
+    const db = createConnection(":memory:");
+    createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-08-12",
+    });
+    createPatient(db, {
+      first_name: "Other",
+      last_name: "Day",
+      dob: "1990-01-01",
+      sex: "F",
+      exam_date: "2026-08-13",
+    });
+    const second = createPatient(db, {
+      first_name: "Alice",
+      last_name: "Martin",
+      dob: "1980-01-01",
+      sex: "F",
+      exam_date: "2026-08-12",
+    });
+    const rows = listPatientsByExamDate(db, "2026-08-12");
+    expect(rows.map((r) => r.last_name)).toEqual(["Dupont", "Martin"]);
+    expect(rows[1].id).toBe(second.id);
+  });
+
+  it("returns an empty array when no patients match", () => {
+    const db = createConnection(":memory:");
+    expect(listPatientsByExamDate(db, "2026-08-12")).toEqual([]);
   });
 });

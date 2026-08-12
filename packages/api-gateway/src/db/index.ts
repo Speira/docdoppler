@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatAccessionNumber } from "./patients.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = path.join(__dirname, "schema.sql");
@@ -13,6 +14,7 @@ export function createConnection(dbPath: string): Database.Database {
   db.pragma("foreign_keys = ON");
   db.exec(readFileSync(SCHEMA_PATH, "utf8"));
   ensureExamDateColumn(db);
+  ensureAccessionNumberColumn(db);
   return db;
 }
 
@@ -28,6 +30,36 @@ export function ensureExamDateColumn(db: Database.Database): void {
     // not their actual historical exam date, which this schema has no record of.
     db.exec("ALTER TABLE patients ADD COLUMN exam_date TEXT NOT NULL DEFAULT ''");
     db.exec("UPDATE patients SET exam_date = CURRENT_DATE");
+  }
+}
+
+export function ensureAccessionNumberColumn(db: Database.Database): void {
+  const columns = db.prepare("PRAGMA table_info(patients)").all() as {
+    name: string;
+  }[];
+  const hasColumn = columns.some(
+    (column) => column.name === "accession_number",
+  );
+  if (!hasColumn) {
+    db.exec(
+      "ALTER TABLE patients ADD COLUMN accession_number TEXT NOT NULL DEFAULT ''",
+    );
+    backfillAccessionNumbers(db);
+  }
+}
+
+function backfillAccessionNumbers(db: Database.Database): void {
+  const rows = db
+    .prepare("SELECT id, exam_date FROM patients ORDER BY exam_date, id")
+    .all() as { id: number; exam_date: string }[];
+  const sequenceByDate = new Map<string, number>();
+  for (const row of rows) {
+    const sequence = (sequenceByDate.get(row.exam_date) ?? 0) + 1;
+    sequenceByDate.set(row.exam_date, sequence);
+    db.prepare("UPDATE patients SET accession_number = ? WHERE id = ?").run(
+      formatAccessionNumber(row.exam_date, sequence),
+      row.id,
+    );
   }
 }
 

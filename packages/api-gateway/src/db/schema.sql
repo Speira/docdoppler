@@ -1,12 +1,13 @@
 CREATE TABLE IF NOT EXISTS patients (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  first_name TEXT NOT NULL,
-  last_name  TEXT NOT NULL,
-  dob        TEXT NOT NULL,
-  sex        TEXT NOT NULL CHECK (sex IN ('M', 'F')),
-  exam_date  TEXT NOT NULL DEFAULT CURRENT_DATE,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name       TEXT NOT NULL,
+  last_name        TEXT NOT NULL,
+  dob              TEXT NOT NULL,
+  sex              TEXT NOT NULL CHECK (sex IN ('M', 'F')),
+  exam_date        TEXT NOT NULL DEFAULT CURRENT_DATE,
+  accession_number TEXT NOT NULL DEFAULT '',
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TRIGGER IF NOT EXISTS patients_set_updated_at

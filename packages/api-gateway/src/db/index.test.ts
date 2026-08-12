@@ -1,6 +1,11 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-import { createConnection, ensureExamDateColumn } from "./index.js";
+import {
+  createConnection,
+  ensureExamDateColumn,
+  ensureAccessionNumberColumn,
+} from "./index.js";
+import { createPatient } from "./patients.js";
 
 describe("db schema", () => {
   it("creates the patients and risk_factors tables", () => {
@@ -208,5 +213,67 @@ describe("db schema", () => {
       .prepare("SELECT * FROM risk_factors WHERE patient_id = ?")
       .all(patientId);
     expect(rows).toHaveLength(0);
+  });
+
+  it("adds an accession_number column to a pre-existing patients table lacking it, backfilling per exam_date", () => {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE patients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        dob TEXT NOT NULL,
+        sex TEXT NOT NULL,
+        exam_date TEXT NOT NULL
+      );
+    `);
+    const first = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex, exam_date) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M", "2026-08-12");
+    const second = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex, exam_date) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run("Alice", "Martin", "1980-01-01", "F", "2026-08-12");
+
+    ensureAccessionNumberColumn(db);
+
+    const columns = db
+      .prepare("PRAGMA table_info(patients)")
+      .all()
+      .map((c) => (c as { name: string }).name);
+    expect(columns).toContain("accession_number");
+
+    const firstRow = db
+      .prepare("SELECT accession_number FROM patients WHERE id = ?")
+      .get(first.lastInsertRowid) as { accession_number: string };
+    const secondRow = db
+      .prepare("SELECT accession_number FROM patients WHERE id = ?")
+      .get(second.lastInsertRowid) as { accession_number: string };
+    expect(firstRow.accession_number).toBe("20260812-001");
+    expect(secondRow.accession_number).toBe("20260812-002");
+  });
+
+  it("is a no-op when the patients table already has accession_number", () => {
+    const db = createConnection(":memory:");
+    expect(() => ensureAccessionNumberColumn(db)).not.toThrow();
+  });
+
+  it("does not overwrite an existing accession_number when called again", () => {
+    const db = createConnection(":memory:");
+    const patient = createPatient(db, {
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-08-12",
+    });
+    ensureAccessionNumberColumn(db);
+    const row = db
+      .prepare("SELECT accession_number FROM patients WHERE id = ?")
+      .get(patient.id) as { accession_number: string };
+    expect(row.accession_number).toBe("20260812-001");
   });
 });

@@ -28,8 +28,32 @@ export interface PatientRow {
   dob: string;
   sex: "M" | "F";
   exam_date: string;
+  accession_number: string;
   created_at: string;
   updated_at: string;
+}
+
+export function formatAccessionNumber(
+  examDate: string,
+  sequence: number,
+): string {
+  const datePart = examDate.replace(/-/g, "");
+  const sequencePart = String(sequence).padStart(3, "0");
+  return `${datePart}-${sequencePart}`;
+}
+
+function nextAccessionNumber(
+  db: Database.Database,
+  examDate: string,
+): string {
+  const rows = db
+    .prepare("SELECT accession_number FROM patients WHERE exam_date = ?")
+    .all(examDate) as { accession_number: string }[];
+  const maxSequence = rows.reduce((max, row) => {
+    const sequence = Number(row.accession_number.split("-")[1]);
+    return Number.isFinite(sequence) && sequence > max ? sequence : max;
+  }, 0);
+  return formatAccessionNumber(examDate, maxSequence + 1);
 }
 
 export interface RiskFactorsRow {
@@ -59,9 +83,10 @@ export function createPatient(
   db: Database.Database,
   input: CreatePatientInput,
 ): PatientRow {
+  const accessionNumber = nextAccessionNumber(db, input.exam_date);
   const { lastInsertRowid } = db
     .prepare(
-      "INSERT INTO patients (first_name, last_name, dob, sex, exam_date) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO patients (first_name, last_name, dob, sex, exam_date, accession_number) VALUES (?, ?, ?, ?, ?, ?)",
     )
     .run(
       input.first_name,
@@ -69,6 +94,7 @@ export function createPatient(
       input.dob,
       input.sex,
       input.exam_date,
+      accessionNumber,
     );
   return getPatient(db, Number(lastInsertRowid)) as PatientRow;
 }
@@ -86,6 +112,15 @@ export function listPatients(db: Database.Database): PatientRow[] {
   return db
     .prepare("SELECT * FROM patients ORDER BY last_name, first_name")
     .all() as PatientRow[];
+}
+
+export function listPatientsByExamDate(
+  db: Database.Database,
+  examDate: string,
+): PatientRow[] {
+  return db
+    .prepare("SELECT * FROM patients WHERE exam_date = ? ORDER BY created_at")
+    .all(examDate) as PatientRow[];
 }
 
 export function updatePatient(
