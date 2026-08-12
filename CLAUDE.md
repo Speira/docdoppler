@@ -8,7 +8,8 @@
 - French UI labels throughout.
 - Do not implement MSSanté, Doctolib, or patient-portal features — these are explicitly out of scope, handled manually by clinic staff outside this app.
 - DICOM/Modality Worklist integration is a separate, gated module — do not wire it into the main app flow unless explicitly asked. See docs/architecture.md.
-- Update the doc (related README.md) each time a big task is done.
+- Update the doc (related README.md and CLAUDE.md) each time it is relevant (long sessions task, refactors, impactful additions).
+- Use README.md files as source of truth before handling a new task, updates these files to help you saving tokens (pertinents informations, directories informations, specific commands, to do/remaining tasks, ...)
 
 ## Stack
 
