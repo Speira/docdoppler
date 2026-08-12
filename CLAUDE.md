@@ -15,6 +15,7 @@
 - Frontend: React + Vite, plain CSS or Tailwind, no component library assumptions unless specified
 - Backend: Node/Express
 - DB: SQLite, single file, no ORM required unless the schema grows complex
+- DICOM bridge (`packages/dicom-bridge` only, see gate above): Python + pynetdicom, standalone process, not part of the Node stack
 
 ## Screens
 
