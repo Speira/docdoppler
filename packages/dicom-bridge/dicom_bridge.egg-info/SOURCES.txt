@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-dicom_bridge/__init__.py
-dicom_bridge.egg-info/PKG-INFO
-dicom_bridge.egg-info/SOURCES.txt
-dicom_bridge.egg-info/dependency_links.txt
-dicom_bridge.egg-info/requires.txt
-dicom_bridge.egg-info/top_level.txt
-tests/test_worklist_client.py
