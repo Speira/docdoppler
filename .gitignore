@@ -1,2 +1,5 @@
 node_modules/
 .claude/worktrees/
+.venv/
+__pycache__/
+*.pyc

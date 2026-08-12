@@ -1,0 +1,5 @@
+pynetdicom>=2.0.2
+pydicom>=2.4.0
+
+[dev]
+pytest>=8.0.0
