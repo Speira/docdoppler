@@ -6,6 +6,7 @@ import express, {
 } from "express";
 import type Database from "better-sqlite3";
 import { createPatientsRouter } from "./routes/patients.js";
+import { createWorklistRouter } from "./routes/worklist.js";
 
 export function createApp(db: Database.Database): Express {
   const app: Express = express();
@@ -24,6 +25,7 @@ export function createApp(db: Database.Database): Express {
   });
 
   app.use("/patients", createPatientsRouter(db));
+  app.use("/worklist", createWorklistRouter(db));
 
   app.get("/", (req: Request, res: Response) => {
     res.send("Hello World!");
