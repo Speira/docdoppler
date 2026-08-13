@@ -19,6 +19,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@speira-docdoppler/shared-labels": "workspace:*",
     "better-sqlite3": "^13.0.1",
     "express": "^5.2.1"
   },
