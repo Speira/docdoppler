@@ -38,3 +38,23 @@ BEGIN
 END;
 
 CREATE INDEX IF NOT EXISTS idx_risk_factors_patient_id ON risk_factors(patient_id);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+  patient_id                  INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  doctor_name                 TEXT NOT NULL,
+  exam_date                   TEXT NOT NULL,
+  carotide_text               TEXT NOT NULL DEFAULT '',
+  carotide_abnormal           INTEGER NOT NULL DEFAULT 0 CHECK (carotide_abnormal IN (0, 1)),
+  artere_membre_sup_text      TEXT NOT NULL DEFAULT '',
+  artere_membre_sup_abnormal  INTEGER NOT NULL DEFAULT 0 CHECK (artere_membre_sup_abnormal IN (0, 1)),
+  veine_membre_sup_text       TEXT NOT NULL DEFAULT '',
+  veine_membre_sup_abnormal   INTEGER NOT NULL DEFAULT 0 CHECK (veine_membre_sup_abnormal IN (0, 1)),
+  artere_membre_inf_text      TEXT NOT NULL DEFAULT '',
+  artere_membre_inf_abnormal  INTEGER NOT NULL DEFAULT 0 CHECK (artere_membre_inf_abnormal IN (0, 1)),
+  veine_membre_inf_text       TEXT NOT NULL DEFAULT '',
+  veine_membre_inf_abnormal   INTEGER NOT NULL DEFAULT 0 CHECK (veine_membre_inf_abnormal IN (0, 1)),
+  created_at                  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_patient_id ON reports(patient_id);

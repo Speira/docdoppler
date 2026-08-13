@@ -276,4 +276,66 @@ describe("db schema", () => {
       .get(patient.id) as { accession_number: string };
     expect(row.accession_number).toBe("20260812-001");
   });
+
+  it("creates the reports table", () => {
+    const db = createConnection(":memory:");
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(tables).toContain("reports");
+  });
+
+  it("rejects an invalid abnormal flag on a report", () => {
+    const db = createConnection(":memory:");
+    const { lastInsertRowid: patientId } = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M");
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO reports (patient_id, doctor_name, exam_date, carotide_abnormal) VALUES (?, ?, ?, ?)",
+        )
+        .run(patientId, "Dr. Martin", "2026-08-13", 2),
+    ).toThrow(/CHECK constraint failed/);
+  });
+
+  it("defaults report vessel columns to empty text and not-abnormal", () => {
+    const db = createConnection(":memory:");
+    const { lastInsertRowid: patientId } = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M");
+    const { lastInsertRowid } = db
+      .prepare(
+        "INSERT INTO reports (patient_id, doctor_name, exam_date) VALUES (?, ?, ?)",
+      )
+      .run(patientId, "Dr. Martin", "2026-08-13");
+    const report = db
+      .prepare("SELECT * FROM reports WHERE id = ?")
+      .get(lastInsertRowid) as Record<string, unknown>;
+    expect(report.carotide_text).toBe("");
+    expect(report.carotide_abnormal).toBe(0);
+    expect(report.veine_membre_inf_text).toBe("");
+    expect(report.veine_membre_inf_abnormal).toBe(0);
+    expect(report.created_at).toBeTruthy();
+  });
+
+  it("cascades delete from patients to reports", () => {
+    const db = createConnection(":memory:");
+    const { lastInsertRowid: patientId } = db
+      .prepare(
+        "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+      )
+      .run("Jean", "Dupont", "1958-03-12", "M");
+    db.prepare(
+      "INSERT INTO reports (patient_id, doctor_name, exam_date) VALUES (?, ?, ?)",
+    ).run(patientId, "Dr. Martin", "2026-08-13");
+    db.prepare("DELETE FROM patients WHERE id = ?").run(patientId);
+    const rows = db.prepare("SELECT * FROM reports WHERE patient_id = ?").all(patientId);
+    expect(rows).toHaveLength(0);
+  });
 });
