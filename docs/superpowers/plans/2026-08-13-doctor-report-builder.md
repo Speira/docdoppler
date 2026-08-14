@@ -2301,8 +2301,27 @@ git commit -m "feat(client-secretary): add ReportList feature component"
 
 ## Task 14: Route `/reports` + nav entry point
 
+**Bug found during Task 15's end-to-end walkthrough, fixed retroactively:**
+`reports.tsx` as originally specified below (`createFileRoute('/reports')`
+rendering `<ReportList>` directly) makes TanStack Router treat it as the
+**parent layout** of `reports.$patientId.tsx` (file-based routing nests
+`foo.tsx` + `foo.$bar.tsx` by design, parent needs `<Outlet/>` for the
+child to ever render). Since this `reports.tsx` had no `<Outlet/>`,
+`/reports/$patientId` silently rendered the list instead of the builder —
+not caught by Task 12 (ran before this file existed) or Task 14's own
+`pnpm build` check (build doesn't verify runtime route rendering). Fixed
+by splitting into three files: `reports.tsx` is now a pure pathless
+layout (`component: Outlet`, no `ReportList` import), `reports.index.tsx`
+holds the actual `ReportList` page (exactly the JSX originally specified
+below for `reports.tsx`, just moved to the new file and
+`createFileRoute('/reports/')` instead of `createFileRoute('/reports')`),
+and `reports.$patientId.tsx` (Task 12) is unchanged. The steps below still
+describe the `ReportList` page's content correctly — just create it as
+`reports.index.tsx`, not `reports.tsx`.
+
 **Files:**
-- Create: `packages/client-secretary/src/routes/reports.tsx`
+- Create: `packages/client-secretary/src/routes/reports.index.tsx` (the `ReportList` page — see deviation note above; NOT `reports.tsx`)
+- Create: `packages/client-secretary/src/routes/reports.tsx` (pathless layout, `component: Outlet`, see deviation note above)
 - Modify: `packages/client-secretary/src/features/patientFeatures/PatientList.tsx`
 
 **Interfaces:**
