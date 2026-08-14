@@ -16,6 +16,8 @@
 - Frontend: React + Vite, plain CSS or Tailwind, no component library assumptions unless specified
 - Backend: Node/Express
 - DB: SQLite, single file, no ORM required unless the schema grows complex
+- JS packages (`api-gateway`, `client-secretary`, `shared-labels`) form a real pnpm workspace (root `pnpm-workspace.yaml`) — `pnpm install` runs once from the repo root, not per-package
+- `packages/shared-labels`: small non-DB workspace package holding French label constants (vessel sections, risk factors) shared between `api-gateway`'s PDF generation and `client-secretary`'s report builder form
 - DICOM bridge (`packages/dicom-bridge` only, see gate above): Python + pynetdicom, standalone process, not part of the Node stack
 
 ## Screens
@@ -31,7 +33,10 @@
 
 ## Additional specs
 
-- Report module (doctor-facing findings + PDF): see docs/report-module.md
+- Report module (doctor-facing findings + PDF): see docs/report-module.md — implemented
+  (packages/api-gateway `reports` table/endpoints, packages/client-secretary `/reports`
+  screen, packages/shared-labels for shared FR labels). IPS/ABI is NOT implemented —
+  formula unconfirmed with the doctor, see docs/report-module.md's open question.
 - DICOM Worklist bridge: see docs/dicom-worklist-bridge.md — the standalone SCP
   (`packages/dicom-bridge`) and its `GET /worklist` endpoint on `api-gateway` are
   implemented and tested, but DO NOT wire this into the main app (no "save

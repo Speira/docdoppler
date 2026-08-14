@@ -8,10 +8,14 @@ non-negotiable constraints before making changes.
 ## Packages
 
 - **`packages/api-gateway`** — Node/Express + SQLite backend. `pnpm dev` runs it on `http://localhost:3000`. See its README for the HTTP API.
-- **`packages/client-secretary`** — React/TanStack Start frontend (secretary intake screen; doctor report builder is a separate, not-yet-built slice — see `docs/report-module.md`).
+- **`packages/client-secretary`** — React/TanStack Start frontend: secretary intake screen and doctor report builder (`/reports`).
+- **`packages/shared-labels`** — shared French label constants (vessel sections, risk factors) used by both `api-gateway`'s PDF generation and `client-secretary`'s report builder form.
 - **`packages/dicom-bridge`** — standalone Python DICOM Modality Worklist SCP for the clinic's Mindray ME8. Not wired into the main app — see its README and `docs/dicom-worklist-bridge.md` for why and its current validation status.
 
 ## Setup
+
+The JS packages (`api-gateway`, `client-secretary`, `shared-labels`) form a
+real pnpm workspace — install once from the repo root, not per-package:
 
 ```bash
 pnpm install
@@ -36,6 +40,6 @@ cd packages/dicom-bridge && .venv/bin/pytest
 ## Docs
 
 - `CLAUDE.md` — project constraints and data model (read this first)
-- `docs/report-module.md` — doctor report builder spec
+- `docs/report-module.md` — doctor report builder spec (implemented; IPS/ABI is the one piece not yet built, pending doctor confirmation of the formula)
 - `docs/dicom-worklist-bridge.md` — Mindray-side DICOM configuration notes and open questions
 - `docs/superpowers/specs/` and `docs/superpowers/plans/` — design docs and implementation plans for past and in-progress feature work
