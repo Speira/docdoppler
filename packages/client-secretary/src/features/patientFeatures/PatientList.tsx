@@ -104,11 +104,18 @@ function PatientListView({
             {patients.length === 1 ? '' : 's'}.
           </p>
         </div>
-        <Link to="/secretariat">
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-            {t('Nouveau patient')}
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/reports">
+            <Button type="button" variant="outline">
+              {t('Rapports')}
+            </Button>
+          </Link>
+          <Link to="/secretariat">
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+              {t('Nouveau patient')}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
