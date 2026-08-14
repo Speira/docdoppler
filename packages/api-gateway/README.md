@@ -58,6 +58,44 @@ Body: any subset of the boolean fields below. Omitted fields default to `false`.
 - `404` → `PATIENT_NOT_FOUND`
 - `400` → `RISK_FACTOR_VALUE_INVALID` (a field was sent with a non-boolean value)
 
+## Reports
+
+Reports are **append-only** — each call creates a new report; there is no
+update/delete endpoint, and a patient can accumulate multiple reports over
+time (re-exams). `exam_date` here is independent of the patient's
+`exam_date` — it's snapshotted at report creation, not looked up live.
+
+### `POST /patients/:id/reports`
+
+Body (`doctor_name` and `exam_date` required, each vessel section optional):
+```json
+{
+  "doctor_name": "Dr. Martin",
+  "exam_date": "2026-08-13",
+  "carotide": { "text": "Plaque modérée", "abnormal": true },
+  "artere_membre_sup": { "text": "", "abnormal": false },
+  "veine_membre_sup": { "text": "", "abnormal": false },
+  "artere_membre_inf": { "text": "", "abnormal": false },
+  "veine_membre_inf": { "text": "", "abnormal": false }
+}
+```
+Omitted vessel keys, or an omitted `text`/`abnormal` within one, default to
+`""`/`false`.
+
+- `201` → the created report row: `{ id, patient_id, doctor_name, exam_date, carotide_text, carotide_abnormal, artere_membre_sup_text, artere_membre_sup_abnormal, veine_membre_sup_text, veine_membre_sup_abnormal, artere_membre_inf_text, artere_membre_inf_abnormal, veine_membre_inf_text, veine_membre_inf_abnormal, created_at }` (the `_abnormal` fields come back as `0`/`1`, matching SQLite storage)
+- `404` → `PATIENT_NOT_FOUND`
+- `400` → `DOCTOR_NAME_REQUIRED` | `EXAM_DATE_REQUIRED` | `EXAM_DATE_INVALID` | `FINDING_ABNORMAL_VALUE_INVALID`
+
+### `GET /patients/:id/reports`
+
+- `200` → the patient's reports, newest first (empty array if none): same shape as the `POST` response, as an array.
+- `404` → `PATIENT_NOT_FOUND`
+
+### `GET /reports/:id/pdf`
+
+- `200` → `Content-Type: application/pdf`, the rendered report (clinic header, patient identity, risk factors, findings per vessel, exam date, doctor name).
+- `404` → `REPORT_NOT_FOUND`
+
 ## Worklist
 
 ### `GET /worklist?date=YYYY-MM-DD`
@@ -70,4 +108,4 @@ README) — nothing in this app calls it. `date` must be a real calendar date.
 
 ## Out of scope (do not assume these exist)
 
-Deleting a patient, editing/deleting a past risk-factors entry, listing full risk-factors history, `reports` endpoints (doctor report builder), search/filter on the patient list. Wiring patient creation into the DICOM worklist bridge is also out of scope here — see `docs/dicom-worklist-bridge.md`.
+Deleting a patient, editing/deleting a past risk-factors entry, listing full risk-factors history, editing/deleting a past report, IPS/ABI calculation (formula unconfirmed with the doctor), search/filter on the patient list. Wiring patient creation into the DICOM worklist bridge is also out of scope here — see `docs/dicom-worklist-bridge.md`.

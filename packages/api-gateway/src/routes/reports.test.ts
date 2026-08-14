@@ -105,3 +105,46 @@ describe("patient reports routes", () => {
     });
   });
 });
+
+describe("GET /reports/:id/pdf", () => {
+  let db: Database.Database;
+  let app: Express;
+
+  beforeEach(() => {
+    db = createConnection(":memory:");
+    app = createApp(db);
+  });
+
+  async function createTestReport() {
+    const patientResponse = await supertest(app).post("/patients").send({
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+    });
+    const reportResponse = await supertest(app)
+      .post(`/patients/${patientResponse.body.id}/reports`)
+      .send({ doctor_name: "Dr. Martin", exam_date: "2026-08-13" });
+    return reportResponse.body;
+  }
+
+  it("streams a PDF for an existing report", async () => {
+    const report = await createTestReport();
+    const response = await supertest(app).get(`/reports/${report.id}/pdf`);
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/pdf");
+    expect(response.body.slice(0, 4).toString()).toBe("%PDF");
+  });
+
+  it("returns 404 for an unknown report", async () => {
+    const response = await supertest(app).get("/reports/999/pdf");
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "REPORT_NOT_FOUND" });
+  });
+
+  it("returns 404 for a non-numeric report id", async () => {
+    const response = await supertest(app).get("/reports/not-a-number/pdf");
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "REPORT_NOT_FOUND" });
+  });
+});
