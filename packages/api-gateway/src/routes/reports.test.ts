@@ -1,0 +1,107 @@
+import { describe, expect, it, beforeEach } from "vitest";
+import supertest from "supertest";
+import type Database from "better-sqlite3";
+import type { Express } from "express";
+import { createConnection } from "../db/index.js";
+import { createApp } from "../app.js";
+
+describe("patient reports routes", () => {
+  let db: Database.Database;
+  let app: Express;
+
+  beforeEach(() => {
+    db = createConnection(":memory:");
+    app = createApp(db);
+  });
+
+  async function createTestPatient() {
+    const response = await supertest(app).post("/patients").send({
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+    });
+    return response.body;
+  }
+
+  describe("POST /patients/:id/reports", () => {
+    it("creates a report with the minimal valid payload", async () => {
+      const patient = await createTestPatient();
+      const response = await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({ doctor_name: "Dr. Martin", exam_date: "2026-08-13" });
+      expect(response.status).toBe(201);
+      expect(response.body.patient_id).toBe(patient.id);
+      expect(response.body.doctor_name).toBe("Dr. Martin");
+      expect(response.body.carotide_text).toBe("");
+    });
+
+    it("stores per-vessel findings", async () => {
+      const patient = await createTestPatient();
+      const response = await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({
+          doctor_name: "Dr. Martin",
+          exam_date: "2026-08-13",
+          carotide: { text: "Plaque modérée", abnormal: true },
+        });
+      expect(response.status).toBe(201);
+      expect(response.body.carotide_text).toBe("Plaque modérée");
+      expect(response.body.carotide_abnormal).toBe(1);
+    });
+
+    it("returns 404 for an unknown patient", async () => {
+      const response = await supertest(app)
+        .post("/patients/999/reports")
+        .send({ doctor_name: "Dr. Martin", exam_date: "2026-08-13" });
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+
+    it("returns 400 for a missing doctor_name", async () => {
+      const patient = await createTestPatient();
+      const response = await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({ exam_date: "2026-08-13" });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: "DOCTOR_NAME_REQUIRED" });
+    });
+
+    it("returns 404 (not 400) for an unknown patient with an invalid body", async () => {
+      const response = await supertest(app)
+        .post("/patients/999/reports")
+        .send({});
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+  });
+
+  describe("GET /patients/:id/reports", () => {
+    it("lists a patient's reports newest first", async () => {
+      const patient = await createTestPatient();
+      await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({ doctor_name: "Dr. Martin", exam_date: "2026-08-13" });
+      const second = await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({ doctor_name: "Dr. Leroy", exam_date: "2026-08-14" });
+      const response = await supertest(app).get(`/patients/${patient.id}/reports`);
+      expect(response.status).toBe(200);
+      expect(response.body[0].id).toBe(second.body.id);
+      expect(response.body).toHaveLength(2);
+    });
+
+    it("returns an empty array when a patient has no reports", async () => {
+      const patient = await createTestPatient();
+      const response = await supertest(app).get(`/patients/${patient.id}/reports`);
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([]);
+    });
+
+    it("returns 404 for an unknown patient", async () => {
+      const response = await supertest(app).get("/patients/999/reports");
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+  });
+});
