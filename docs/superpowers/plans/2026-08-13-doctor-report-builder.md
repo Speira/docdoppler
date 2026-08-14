@@ -1002,11 +1002,25 @@ git commit -m "feat(api-gateway): add POST/GET /patients/:id/reports routes"
 
 ## Task 7: `pdf/report-pdf.ts` — PDF generation
 
+**Deviation from the steps below (found during execution, not caught in review):**
+`pdf-parse` bundles a very old pdf.js (v1.10.100, ~2017) that intermittently
+threw `InvalidPDFException`/`bad XRef entry` on PDFs produced by the current
+`pdf-lib`, deterministically failing 2-3 of the 5 tests below regardless of
+content. Swapped the test-only PDF-text-extraction dependency to `unpdf`
+(actively maintained, wraps a current pdf.js) instead — no
+`pdf-parse.d.ts` file, no `pdf-parse` devDependency; use `unpdf` (`^1.8.1`)
+as the devDependency and `import { extractText, getDocumentProxy } from
+"unpdf"` in the test file (see actual committed test file for the exact
+`parsePdf` helper used). Also added `doc.save({ useObjectStreams: false })`
+in `report-pdf.ts` for broader PDF-reader compatibility (classic xref
+table instead of compressed xref streams). The steps below are left as
+originally written for historical record; follow the deviation above
+instead where they conflict.
+
 **Files:**
 - Create: `packages/api-gateway/src/pdf/report-pdf.ts`
 - Create: `packages/api-gateway/src/pdf/report-pdf.test.ts`
-- Create: `packages/api-gateway/src/pdf/pdf-parse.d.ts`
-- Modify: `packages/api-gateway/package.json` (add `pdf-lib` dependency, `pdf-parse` devDependency)
+- Modify: `packages/api-gateway/package.json` (add `pdf-lib` dependency, `unpdf` devDependency — not `pdf-parse`, see deviation note above)
 
 **Interfaces:**
 - Consumes: `type PatientRow`, `type RiskFactorsRow` from `../db/patients.js`; `type ReportRow` from `../db/reports.js` (Task 4); `VESSEL_KEYS`, `VESSEL_LABELS`, `RISK_FACTOR_KEYS`, `RISK_FACTOR_LABELS`, `type VesselKey` from `@speira-docdoppler/shared-labels` (Task 2).

@@ -5,3 +5,5 @@ allowBuilds:
   esbuild: true
   lightningcss: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - unpdf@1.8.1
