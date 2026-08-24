@@ -45,7 +45,7 @@ caractéristique" driving the TECHNIQUE paragraph.
 
 **Status: IMPLEMENTED 2026-08-24.**
 
-- New screen: `/parametres` (`client-secretary`), feature-sliced under
+- New screen: `/settings` (`client-secretary`), feature-sliced under
   `features/settingsFeatures/` — a single form, no list/detail split, matching
   the "single-row settings" scope.
 - New singleton table `clinic_settings` (`api-gateway`, `id` pinned to 1 via a

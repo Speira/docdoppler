@@ -1,4 +1,5 @@
 import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 import { Suspense, use, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -89,7 +90,7 @@ function PatientEditForm({
       await PatientEditHelper.deletePatient(id)
       toast.success(t('Patient supprimé'))
       bypassUnsavedGuard.current = true
-      navigate({ to: '/' })
+      navigate({ to: '/patients' })
     } catch (error) {
       toast.error(t('Échec de la suppression'), {
         description: t(apiErrorMessage(error)),
@@ -109,8 +110,9 @@ function PatientEditForm({
             {t('Dossier n° {{id}} — modifier la fiche patient.', { id })}
           </p>
         </div>
-        <Link to="/">
+        <Link to="/patients">
           <Button type="button" variant="outline">
+            <ArrowLeft />
             {t('Retour')}
           </Button>
         </Link>
@@ -129,6 +131,7 @@ function PatientEditForm({
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button type="button" variant="destructive" disabled={deleting}>
+                <Trash2 />
                 {t('Supprimer')}
               </Button>
             </AlertDialogTrigger>
@@ -150,6 +153,7 @@ function PatientEditForm({
                   disabled={deleting}
                   onClick={handleDelete}
                 >
+                  <Trash2 />
                   {t('Supprimer')}
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -180,6 +184,7 @@ function PatientEditForm({
                   disabled={!canSubmit || !isDirty}
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
                 >
+                  <Save />
                   {isSubmitting ? t('Enregistrement…') : t('Enregistrer')}
                 </Button>
               )}

@@ -1,17 +1,12 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, UserPlus } from 'lucide-react'
 import { Suspense, use, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PatientListHelper } from './PatientListHelper'
 import type { PatientRecord } from '#/services/patient-service'
 import { Button } from '#/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '#/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import {
   Table,
@@ -62,7 +57,10 @@ function PatientListSkeleton() {
   )
 }
 
-function formatSex(sex: PatientRecord['sex'], t: (key: string) => string): string {
+function formatSex(
+  sex: PatientRecord['sex'],
+  t: (key: string) => string,
+): string {
   return sex === 'F' ? t('Féminin') : t('Masculin')
 }
 
@@ -100,27 +98,17 @@ function PatientListView({
             {t('Patients')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {patients.length} patient{patients.length === 1 ? '' : 's'} enregistré
+            {patients.length} patient{patients.length === 1 ? '' : 's'}{' '}
+            enregistré
             {patients.length === 1 ? '' : 's'}.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link to="/parametres">
-            <Button type="button" variant="outline">
-              {t('Paramètres')}
-            </Button>
-          </Link>
-          <Link to="/reports">
-            <Button type="button" variant="outline">
-              {t('Rapports')}
-            </Button>
-          </Link>
-          <Link to="/secretariat">
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-              {t('Nouveau patient')}
-            </Button>
-          </Link>
-        </div>
+        <Link to="/patients/add">
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <UserPlus />
+            {t('Nouveau patient')}
+          </Button>
+        </Link>
       </div>
 
       <Card>
@@ -144,12 +132,18 @@ function PatientListView({
                     type="button"
                     className="flex items-center gap-1 font-medium"
                     onClick={() =>
-                      setExamDateSort((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+                      setExamDateSort((prev) =>
+                        prev === 'asc' ? 'desc' : 'asc',
+                      )
                     }
                   >
                     {t("Date de l'examen")}
-                    {examDateSort === 'asc' && <ArrowUp className="h-3.5 w-3.5" />}
-                    {examDateSort === 'desc' && <ArrowDown className="h-3.5 w-3.5" />}
+                    {examDateSort === 'asc' && (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    )}
+                    {examDateSort === 'desc' && (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    )}
                     {!examDateSort && (
                       <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
@@ -162,7 +156,10 @@ function PatientListView({
             <TableBody>
               {sorted.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground"
+                  >
                     {t('Aucun patient trouvé.')}
                   </TableCell>
                 </TableRow>
@@ -173,33 +170,44 @@ function PatientListView({
                   role="button"
                   tabIndex={0}
                   className="cursor-pointer hover:bg-secondary/50"
-                  onClick={() => navigate({ to: '/secretariat', search: { id: p.id } })}
+                  onClick={() =>
+                    navigate({ to: '/patients/add', search: { id: p.id } })
+                  }
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      navigate({ to: '/secretariat', search: { id: p.id } })
+                      navigate({ to: '/patients/add', search: { id: p.id } })
                     }
                   }}
                 >
                   <TableCell className="font-medium">
                     {p.last_name.toUpperCase()} {p.first_name}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{p.id}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {p.id}
+                  </TableCell>
                   <TableCell>
                     {PatientListHelper.formatDate(p.dob)}{' '}
                     <span className="text-muted-foreground">
-                      ({t('{{age}} ans', { age: PatientListHelper.calculateAge(p.dob) })})
+                      (
+                      {t('{{age}} ans', {
+                        age: PatientListHelper.calculateAge(p.dob),
+                      })}
+                      )
                     </span>
                   </TableCell>
-                  <TableCell>{PatientListHelper.formatDate(p.exam_date)}</TableCell>
+                  <TableCell>
+                    {PatientListHelper.formatDate(p.exam_date)}
+                  </TableCell>
                   <TableCell>{formatSex(p.sex, t)}</TableCell>
                   <TableCell className="text-right">
                     <Link
-                      to="/secretariat"
+                      to="/patients/add"
                       search={{ id: p.id }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Button size="sm" variant="outline">
+                        <Pencil />
                         {t('Modifier')}
                       </Button>
                     </Link>

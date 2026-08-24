@@ -3,7 +3,7 @@ from unittest.mock import patch
 from pynetdicom import AE, evt
 from pynetdicom.sop_class import Verification
 
-from dicom_bridge.run import build_ae
+from dicom_bridge.run import build_ae, security_warning
 from dicom_bridge.scp import handle_echo
 
 
@@ -16,6 +16,30 @@ def test_build_ae_leaves_default_config_permissive():
     ae = build_ae()
     assert ae.require_called_aet is False
     assert ae.require_calling_aet == []
+
+
+def test_security_warning_present_when_fully_permissive():
+    with (
+        patch("dicom_bridge.run.config.REQUIRE_CALLED_AET", False),
+        patch("dicom_bridge.run.config.ALLOWED_CALLING_AETS", []),
+    ):
+        assert security_warning() is not None
+
+
+def test_security_warning_absent_when_calling_aets_allowlisted():
+    with (
+        patch("dicom_bridge.run.config.REQUIRE_CALLED_AET", False),
+        patch("dicom_bridge.run.config.ALLOWED_CALLING_AETS", ["mindray"]),
+    ):
+        assert security_warning() is None
+
+
+def test_security_warning_present_when_calling_aets_unrestricted_even_if_called_aet_required():
+    with (
+        patch("dicom_bridge.run.config.REQUIRE_CALLED_AET", True),
+        patch("dicom_bridge.run.config.ALLOWED_CALLING_AETS", []),
+    ):
+        assert security_warning() is not None
 
 
 def test_association_rejected_when_calling_aet_not_allowlisted():

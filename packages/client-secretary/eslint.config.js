@@ -13,6 +13,7 @@ export default [
       '@typescript-eslint/require-await': 'off',
       'pnpm/json-enforce-catalog': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
+      'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
     },
   },
   {

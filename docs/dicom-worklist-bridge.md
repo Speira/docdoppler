@@ -20,6 +20,16 @@ been tested against the real Mindray unit, and "save patient" is **not**
 wired to this module. Everything under "Not yet confirmed" and "Explicitly
 out of scope" below still applies.
 
+**Hardening pass (2026-08-24):** since dcmtk/findscu isn't available in the
+dev sandbox, this pass focused on protocol-level correctness reachable
+without the real unit: French-accent character encoding
+(`SpecificCharacterSet`), previously-missing MWL tags
+(`ScheduledStationAETitle`, `ScheduledProcedureStepID`,
+`RequestedProcedureID`), a defensive fallback for malformed date queries,
+and a startup warning when the calling-AE allowlist is unset. No behavior
+change to the pull-based query flow or the save-patient gate. See
+"Worklist query behavior" below for the updated tag list.
+
 ## Confirmed Mindray configuration (verified on-site 2026-07-28)
 
 - DICOM Liste de travail (MWL): Installé — no license purchase needed
@@ -40,6 +50,8 @@ out of scope" below still applies.
   any registered device — unverified
 - C-ECHO (Verify) test — not yet run
 - Full C-FIND (worklist query) test — not yet run
+- Whether Mindray actually requires/checks `ScheduledStationAETitle` on
+  returned worklist items — unverified, currently defaulted to `mindray`
 
 ## Bridge architecture (target)
 
@@ -62,10 +74,25 @@ out of scope" below still applies.
 
 - SCP queries `patients` table filtered by `exam_date = <date requested by SCU>`
   (Mindray will typically request "today" by default in its C-FIND query)
+- A malformed or unparseable `ScheduledProcedureStepStartDate` in the query
+  falls back to today's date rather than propagating a garbage value.
+  DICOM date-*range* queries (`YYYYMMDD-YYYYMMDD`) are not implemented —
+  out of scope until on-site testing shows Mindray actually sends one; single
+  exact-date requests are the only confirmed pattern.
 - Sort order: by created_at (entry order) if no time field exists
 - Maps to DICOM tags:
+  - SpecificCharacterSet — hardcoded `ISO_IR 100` (Latin-1), needed so
+    accented French names (e.g. "François", "Bénédicte") round-trip
+    correctly
   - PatientName, PatientID, PatientBirthDate, PatientSex — from identity fields
+  - AccessionNumber, RequestedProcedureID — from `accession_number`
+  - ScheduledStationAETitle — from `BRIDGE_STATION_AET`, defaults to the
+    confirmed Mindray AE title `mindray`; **unverified** whether the Mindray
+    actually requires this tag or checks its value — on-site test needed
   - ScheduledProcedureStepStartDate — from exam_date
+  - ScheduledProcedureStepID — from `accession_number`
   - Modality — hardcoded "US" (ultrasound)
   - ScheduledProcedureStepDescription — hardcoded "Echo Doppler Vasculaire"
     (single exam type per clinic, per earlier scope)
+- SCP prints a startup warning when `BRIDGE_ALLOWED_CALLING_AETS` is unset
+  (any caller accepted) — see `packages/dicom-bridge/README.md`

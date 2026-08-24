@@ -81,7 +81,8 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
             {(field) => (
               <div className="grid gap-2">
                 <Label htmlFor={field.name}>
-                  {t('Date de naissance')} <span className="text-destructive">*</span>
+                  {t('Date de naissance')}{' '}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id={field.name}
@@ -109,7 +110,8 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
             {(field) => (
               <div className="grid gap-2">
                 <Label htmlFor={field.name}>
-                  {t("Date de l'examen")} <span className="text-destructive">*</span>
+                  {t("Date de l'examen")}{' '}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id={field.name}
@@ -132,10 +134,6 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
               </div>
             )}
           </form.Field>
-
-          <p className="text-xs text-muted-foreground">
-            <span className="text-destructive">*</span> {t('champ requis')}
-          </p>
 
           <form.Field name="sex">
             {(field) => (
@@ -162,6 +160,10 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
               </div>
             )}
           </form.Field>
+          <br />
+          <p className="text-xs text-muted-foreground">
+            <span className="text-destructive">*</span> {t('champ requis')}
+          </p>
         </CardContent>
       </Card>
 

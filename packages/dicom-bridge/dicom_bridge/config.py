@@ -2,6 +2,11 @@ import os
 
 AE_TITLE = os.environ.get("BRIDGE_AE_TITLE", "DOCDOPPLER")
 PORT = int(os.environ.get("BRIDGE_PORT", "11112"))
+
+# Confirmed on-site (docs/dicom-worklist-bridge.md): the Mindray ME8's own
+# DICOM AE title is "mindray". Worklist items advertise this as the
+# ScheduledStationAETitle so the modality recognizes steps scheduled for it.
+STATION_AET = os.environ.get("BRIDGE_STATION_AET", "mindray")
 WORKLIST_ENDPOINT_URL = os.environ.get(
     "BRIDGE_WORKLIST_URL", "http://localhost:3000/worklist"
 )

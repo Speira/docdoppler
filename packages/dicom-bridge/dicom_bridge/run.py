@@ -14,6 +14,18 @@ def build_ae() -> AE:
     return ae
 
 
+def security_warning() -> str | None:
+    if not config.ALLOWED_CALLING_AETS:
+        return (
+            "WARNING: BRIDGE_ALLOWED_CALLING_AETS is unset — this SCP accepts "
+            "associations from any calling AE title and will hand out patient "
+            "identity data to it. Set BRIDGE_ALLOWED_CALLING_AETS once the "
+            "Mindray's calling AE title is confirmed on-site "
+            "(see docs/dicom-worklist-bridge.md)."
+        )
+    return None
+
+
 def main() -> None:
     ae = build_ae()
 
@@ -28,6 +40,9 @@ def main() -> None:
         f"require_called_aet={config.REQUIRE_CALLED_AET}, "
         f"allowed_calling_aets={config.ALLOWED_CALLING_AETS or 'any'}"
     )
+    warning = security_warning()
+    if warning:
+        print(warning)
     ae.start_server(
         (config.BIND_HOST, config.PORT), evt_handlers=handlers, block=True
     )

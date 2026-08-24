@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Eye, Plus } from 'lucide-react'
 import { Suspense, use, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -104,12 +105,14 @@ function ReportListView({
                           rel="noreferrer"
                         >
                           <Button size="sm" variant="outline">
+                            <Eye />
                             {t('Voir rapport')}
                           </Button>
                         </a>
                       )}
                       <Link to="/reports/$patientId" params={{ patientId: String(p.id) }}>
                         <Button size="sm" variant="outline">
+                          <Plus />
                           {t('Nouveau rapport')}
                         </Button>
                       </Link>

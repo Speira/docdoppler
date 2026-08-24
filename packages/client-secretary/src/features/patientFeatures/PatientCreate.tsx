@@ -1,4 +1,5 @@
 import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, Save } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -25,7 +26,7 @@ export function PatientCreate() {
         { description: t('Patient enregistré') },
       )
       bypassUnsavedGuard.current = true
-      navigate({ to: '/secretariat', search: { id } })
+      navigate({ to: '/patients/add', search: { id } })
     } catch (error) {
       toast.error(t('Échec de l’enregistrement'), {
         description: t(apiErrorMessage(error)),
@@ -50,8 +51,9 @@ export function PatientCreate() {
             {t('Enregistrer un nouveau patient.')}
           </p>
         </div>
-        <Link to="/">
+        <Link to="/patients">
           <Button type="button" variant="outline">
+            <ArrowLeft />
             {t('Retour')}
           </Button>
         </Link>
@@ -90,6 +92,7 @@ export function PatientCreate() {
                 disabled={!canSubmit || !isDirty}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
+                <Save />
                 {isSubmitting ? t('Enregistrement…') : t('Enregistrer')}
               </Button>
             )}

@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { ArrowLeft, ExternalLink, FileText } from 'lucide-react'
 import { Suspense, use, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -10,7 +11,7 @@ import {
 } from '@speira-docdoppler/shared-labels'
 
 import { ReportBuilderHelper } from './ReportBuilderHelper'
-import { computeIpsPreview } from './ips'
+import { computeIpsPreview, isPressureOutOfRange } from './ips'
 import { useReportBuilderForm } from './useReportBuilderForm'
 import type { ReportBuilderFormApi } from './useReportBuilderForm'
 import type { ReportBuilderFormValues } from './types'
@@ -26,7 +27,11 @@ import { Textarea } from '#/components/ui/textarea'
 
 function fieldErrorMessage(errors: unknown[]): string {
   return errors
-    .map((error) => (typeof error === 'string' ? error : (error as { message: string }).message))
+    .map((error) =>
+      typeof error === 'string'
+        ? error
+        : (error as { message: string }).message,
+    )
     .join(', ')
 }
 
@@ -85,7 +90,9 @@ function TextField({
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             aria-invalid={!field.state.meta.isValid}
-            aria-describedby={!field.state.meta.isValid ? `${field.name}-error` : undefined}
+            aria-describedby={
+              !field.state.meta.isValid ? `${field.name}-error` : undefined
+            }
           />
           {!field.state.meta.isValid && (
             <p id={`${field.name}-error`} className="text-sm text-destructive">
@@ -122,7 +129,9 @@ function NumberField({
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             aria-invalid={!field.state.meta.isValid}
-            aria-describedby={!field.state.meta.isValid ? `${field.name}-error` : undefined}
+            aria-describedby={
+              !field.state.meta.isValid ? `${field.name}-error` : undefined
+            }
           />
           {!field.state.meta.isValid && (
             <p id={`${field.name}-error`} className="text-sm text-destructive">
@@ -131,6 +140,65 @@ function NumberField({
           )}
         </div>
       )}
+    </form.Field>
+  )
+}
+
+function PressureField({
+  form,
+  name,
+  label,
+}: {
+  form: ReportBuilderFormApi
+  name: keyof ReportBuilderFormValues
+  label: string
+}) {
+  const { t } = useTranslation()
+  return (
+    <form.Field name={name}>
+      {(field) => {
+        const value = field.state.value as string
+        const outOfRange =
+          field.state.meta.isValid && isPressureOutOfRange(value)
+        return (
+          <div className="grid gap-2">
+            <Label htmlFor={field.name}>{t(label)}</Label>
+            <Input
+              id={field.name}
+              name={field.name}
+              type="number"
+              step="any"
+              value={value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              aria-invalid={!field.state.meta.isValid}
+              aria-describedby={
+                !field.state.meta.isValid
+                  ? `${field.name}-error`
+                  : outOfRange
+                    ? `${field.name}-warning`
+                    : undefined
+              }
+            />
+            {!field.state.meta.isValid && (
+              <p
+                id={`${field.name}-error`}
+                className="text-sm text-destructive"
+              >
+                {fieldErrorMessage(field.state.meta.errors)}
+              </p>
+            )}
+            {outOfRange && (
+              <p
+                id={`${field.name}-warning`}
+                className="text-sm text-amber-600 dark:text-amber-500"
+              >
+                {t('Valeur inhabituelle — vérifier la saisie')}
+              </p>
+            )}
+          </div>
+        )
+      }}
     </form.Field>
   )
 }
@@ -167,16 +235,26 @@ function IpsPreview({ form }: { form: ReportBuilderFormApi }) {
   const { t } = useTranslation()
   return (
     <form.Subscribe
-      selector={(state) => [
-        state.values.mi_pression_cheville_droite,
-        state.values.mi_pression_cheville_gauche,
-        state.values.mi_pression_bras_droit,
-        state.values.mi_pression_bras_gauche,
-      ] as const}
+      selector={(state) =>
+        [
+          state.values.mi_pression_cheville_droite,
+          state.values.mi_pression_cheville_gauche,
+          state.values.mi_pression_bras_droit,
+          state.values.mi_pression_bras_gauche,
+        ] as const
+      }
     >
       {([chevilleDroite, chevilleGauche, brasDroit, brasGauche]) => {
-        const ipsDroit = computeIpsPreview(chevilleDroite, brasDroit, brasGauche)
-        const ipsGauche = computeIpsPreview(chevilleGauche, brasDroit, brasGauche)
+        const ipsDroit = computeIpsPreview(
+          chevilleDroite,
+          brasDroit,
+          brasGauche,
+        )
+        const ipsGauche = computeIpsPreview(
+          chevilleGauche,
+          brasDroit,
+          brasGauche,
+        )
         return (
           <div className="grid gap-1 rounded-md bg-muted p-3 text-sm sm:grid-cols-2">
             <p>
@@ -240,6 +318,7 @@ function ReportBuilderView({
         </div>
         <Link to="/reports">
           <Button type="button" variant="outline">
+            <ArrowLeft />
             {t('Retour')}
           </Button>
         </Link>
@@ -247,7 +326,9 @@ function ReportBuilderView({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-primary">{t('Identité et antécédents')}</CardTitle>
+          <CardTitle className="text-primary">
+            {t('Identité et antécédents')}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>
@@ -258,7 +339,9 @@ function ReportBuilderView({
             {t('Antécédents')} :{' '}
             {activeRiskFactors.length === 0
               ? t('aucun')
-              : activeRiskFactors.map((key) => t(RISK_FACTOR_LABELS[key])).join(', ')}
+              : activeRiskFactors
+                  .map((key) => t(RISK_FACTOR_LABELS[key]))
+                  .join(', ')}
           </p>
         </CardContent>
       </Card>
@@ -284,12 +367,18 @@ function ReportBuilderView({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField form={form} name="doctor_name" label="Médecin" required />
+              <TextField
+                form={form}
+                name="doctor_name"
+                label="Médecin"
+                required
+              />
               <form.Field name="exam_date">
                 {(field) => (
                   <div className="grid gap-2">
                     <Label htmlFor={field.name}>
-                      {t("Date de l'examen")} <span className="text-destructive">*</span>
+                      {t("Date de l'examen")}{' '}
+                      <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id={field.name}
@@ -300,11 +389,16 @@ function ReportBuilderView({
                       onChange={(e) => field.handleChange(e.target.value)}
                       aria-invalid={!field.state.meta.isValid}
                       aria-describedby={
-                        !field.state.meta.isValid ? `${field.name}-error` : undefined
+                        !field.state.meta.isValid
+                          ? `${field.name}-error`
+                          : undefined
                       }
                     />
                     {!field.state.meta.isValid && (
-                      <p id={`${field.name}-error`} className="text-sm text-destructive">
+                      <p
+                        id={`${field.name}-error`}
+                        className="text-sm text-destructive"
+                      >
                         {fieldErrorMessage(field.state.meta.errors)}
                       </p>
                     )}
@@ -322,7 +416,9 @@ function ReportBuilderView({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-primary">{t(REPORT_FIELD_LABELS.indication)}</CardTitle>
+            <CardTitle className="text-primary">
+              {t(REPORT_FIELD_LABELS.indication)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea
@@ -335,12 +431,22 @@ function ReportBuilderView({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-primary">{t(REPORT_SECTION_LABELS.tsa)}</CardTitle>
+            <CardTitle className="text-primary">
+              {t(REPORT_SECTION_LABELS.tsa)}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <NumberField form={form} name="tsa_imt_droit" label={REPORT_FIELD_LABELS.tsa_imt_droit} />
-              <NumberField form={form} name="tsa_imt_gauche" label={REPORT_FIELD_LABELS.tsa_imt_gauche} />
+              <NumberField
+                form={form}
+                name="tsa_imt_droit"
+                label={REPORT_FIELD_LABELS.tsa_imt_droit}
+              />
+              <NumberField
+                form={form}
+                name="tsa_imt_gauche"
+                label={REPORT_FIELD_LABELS.tsa_imt_gauche}
+              />
               <NumberField
                 form={form}
                 name="tsa_aci_acc_ratio_droit"
@@ -406,22 +512,22 @@ function ReportBuilderView({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <NumberField
+              <PressureField
                 form={form}
                 name="mi_pression_cheville_droite"
                 label={REPORT_FIELD_LABELS.mi_pression_cheville_droite}
               />
-              <NumberField
+              <PressureField
                 form={form}
                 name="mi_pression_cheville_gauche"
                 label={REPORT_FIELD_LABELS.mi_pression_cheville_gauche}
               />
-              <NumberField
+              <PressureField
                 form={form}
                 name="mi_pression_bras_droit"
                 label={REPORT_FIELD_LABELS.mi_pression_bras_droit}
               />
-              <NumberField
+              <PressureField
                 form={form}
                 name="mi_pression_bras_gauche"
                 label={REPORT_FIELD_LABELS.mi_pression_bras_gauche}
@@ -438,7 +544,9 @@ function ReportBuilderView({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-primary">{t(REPORT_FIELD_LABELS.conclusion)}</CardTitle>
+            <CardTitle className="text-primary">
+              {t(REPORT_FIELD_LABELS.conclusion)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea
@@ -457,6 +565,7 @@ function ReportBuilderView({
                 disabled={isSubmitting}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
+                <FileText />
                 {isSubmitting ? t('Génération…') : t('Générer le rapport')}
               </Button>
             )}
@@ -468,8 +577,13 @@ function ReportBuilderView({
         <Card>
           <CardContent className="flex items-center justify-between py-4">
             <p className="text-sm">{t('Rapport généré avec succès.')}</p>
-            <a href={reportService.reportPdfUrl(reportId)} target="_blank" rel="noreferrer">
+            <a
+              href={reportService.reportPdfUrl(reportId)}
+              target="_blank"
+              rel="noreferrer"
+            >
               <Button type="button" variant="outline">
+                <ExternalLink />
                 {t('Ouvrir le PDF')}
               </Button>
             </a>

@@ -1,3 +1,4 @@
+import { Save } from 'lucide-react'
 import { Suspense, use } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -166,6 +167,7 @@ function SettingsFormView({
                 disabled={isSubmitting}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
+                <Save />
                 {isSubmitting ? t('Enregistrement…') : t('Enregistrer')}
               </Button>
             )}

@@ -12,7 +12,7 @@ def _extract_requested_date(identifier) -> str:
     steps = getattr(identifier, "ScheduledProcedureStepSequence", None)
     if steps:
         raw_date = getattr(steps[0], "ScheduledProcedureStepStartDate", "")
-        if raw_date:
+        if len(raw_date) == 8 and raw_date.isdigit():
             return f"{raw_date[0:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
     return datetime.date.today().isoformat()
 
