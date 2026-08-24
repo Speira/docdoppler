@@ -33,21 +33,29 @@ describe("patient reports routes", () => {
       expect(response.status).toBe(201);
       expect(response.body.patient_id).toBe(patient.id);
       expect(response.body.doctor_name).toBe("Dr. Martin");
-      expect(response.body.carotide_text).toBe("");
+      expect(response.body.tsa_findings_text).toBe("");
     });
 
-    it("stores per-vessel findings", async () => {
+    it("stores TSA findings and computes IPS from the four pressure inputs", async () => {
       const patient = await createTestPatient();
       const response = await supertest(app)
         .post(`/patients/${patient.id}/reports`)
         .send({
           doctor_name: "Dr. Martin",
           exam_date: "2026-08-13",
-          carotide: { text: "Plaque modérée", abnormal: true },
+          tsa: { findings_text: "Plaque modérée", imt_droit: 0.62 },
+          membres_inferieurs: {
+            pression_cheville_droite: 120,
+            pression_cheville_gauche: 130,
+            pression_bras_droit: 130,
+            pression_bras_gauche: 140,
+          },
         });
       expect(response.status).toBe(201);
-      expect(response.body.carotide_text).toBe("Plaque modérée");
-      expect(response.body.carotide_abnormal).toBe(1);
+      expect(response.body.tsa_findings_text).toBe("Plaque modérée");
+      expect(response.body.tsa_imt_droit).toBe(0.62);
+      expect(response.body.mi_ips_droit).toBe(0.86);
+      expect(response.body.mi_ips_gauche).toBe(0.93);
     });
 
     it("returns 404 for an unknown patient", async () => {

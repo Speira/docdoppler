@@ -3,6 +3,22 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { buildReportPdf } from "./report-pdf.js";
 import type { PatientRow, RiskFactorsRow } from "../db/patients.js";
 import type { ReportRow } from "../db/reports.js";
+import type { ClinicSettingsRow } from "../db/settings.js";
+
+function makeSettings(overrides: Partial<ClinicSettingsRow> = {}): ClinicSettingsRow {
+  return {
+    id: 1,
+    doctor_name: "",
+    professional_membership: "",
+    rpps_number: "",
+    adeli_number: "",
+    address: "",
+    mindray_service_date: null,
+    mindray_characteristics: "",
+    updated_at: "2026-08-13 08:00:00",
+    ...overrides,
+  };
+}
 
 function makePatient(overrides: Partial<PatientRow> = {}): PatientRow {
   return {
@@ -25,16 +41,25 @@ function makeReport(overrides: Partial<ReportRow> = {}): ReportRow {
     patient_id: 1,
     doctor_name: "Dr. Martin",
     exam_date: "2026-08-13",
-    carotide_text: "",
-    carotide_abnormal: 0,
-    artere_membre_sup_text: "",
-    artere_membre_sup_abnormal: 0,
-    veine_membre_sup_text: "",
-    veine_membre_sup_abnormal: 0,
-    artere_membre_inf_text: "",
-    artere_membre_inf_abnormal: 0,
-    veine_membre_inf_text: "",
-    veine_membre_inf_abnormal: 0,
+    correspondant_dossier: "",
+    indication: "",
+    tsa_imt_droit: null,
+    tsa_imt_gauche: null,
+    tsa_aci_acc_ratio_droit: null,
+    tsa_aci_acc_ratio_gauche: null,
+    tsa_findings_text: "",
+    aorte_diametre: "",
+    aorte_anevrisme: 0,
+    aorte_anevrisme_diametre_mm: null,
+    aorte_findings_text: "",
+    mi_pression_cheville_droite: null,
+    mi_pression_cheville_gauche: null,
+    mi_pression_bras_droit: null,
+    mi_pression_bras_gauche: null,
+    mi_ips_droit: null,
+    mi_ips_gauche: null,
+    mi_findings_text: "",
+    conclusion: "",
     created_at: "2026-08-13 08:00:00",
     ...overrides,
   };
@@ -66,7 +91,7 @@ async function parsePdf(bytes: Uint8Array): Promise<{ text: string; numpages: nu
 
 describe("buildReportPdf", () => {
   it("produces a single-page PDF containing the patient identity, doctor, and exam date", async () => {
-    const bytes = await buildReportPdf(makePatient(), undefined, makeReport());
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.numpages).toBe(1);
     expect(parsed.text).toContain("DUPONT Jean");
@@ -76,7 +101,7 @@ describe("buildReportPdf", () => {
 
   it("includes only the active risk factors, by French label", async () => {
     const riskFactors = makeRiskFactors({ diabetes: 1, smoking: 1 });
-    const bytes = await buildReportPdf(makePatient(), riskFactors, makeReport());
+    const bytes = await buildReportPdf(makePatient(), riskFactors, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("Diabète");
     expect(parsed.text).toContain("Tabagisme");
@@ -84,29 +109,91 @@ describe("buildReportPdf", () => {
   });
 
   it("says no risk factors were recorded when there are none", async () => {
-    const bytes = await buildReportPdf(makePatient(), undefined, makeReport());
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("Aucun antécédent renseigné.");
   });
 
-  it("flags an abnormal vessel finding and includes its free text", async () => {
+  it("includes the four top-level section headers", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("INDICATION");
+    expect(parsed.text).toContain("TECHNIQUE");
+    expect(parsed.text).toContain("RÉSULTATS");
+    expect(parsed.text).toContain("CONCLUSION");
+  });
+
+  it("includes TSA, aorte abdominale, and membres inférieurs findings", async () => {
     const bytes = await buildReportPdf(
       makePatient(),
       undefined,
       makeReport({
-        carotide_text: "Plaque athéromateuse significative",
-        carotide_abnormal: 1,
+        tsa_imt_droit: 0.62,
+        tsa_findings_text: "Plaque athéromateuse significative",
+        aorte_anevrisme: 1,
+        aorte_anevrisme_diametre_mm: 34,
+        mi_pression_cheville_droite: 120,
+        mi_pression_bras_droit: 130,
+        mi_pression_bras_gauche: 140,
+        mi_ips_droit: 0.86,
       }),
+      makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("Carotide");
-    expect(parsed.text).toContain("anormal");
+    expect(parsed.text).toContain("Troncs supra-aortiques");
     expect(parsed.text).toContain("Plaque athéromateuse significative");
+    expect(parsed.text).toContain("Aorte abdominale");
+    expect(parsed.text).toContain("34");
+    expect(parsed.text).toContain("IPS droit");
+    expect(parsed.text).toContain("0.86");
   });
 
-  it("says no findings were recorded when every vessel is empty", async () => {
-    const bytes = await buildReportPdf(makePatient(), undefined, makeReport());
+  it("includes the indication and conclusion free text", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        indication: "Bilan vasculaire (tabagisme, hypertension)",
+        conclusion: "Athéromatose polyvasculaire.",
+      }),
+      makeSettings(),
+    );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("Aucune constatation renseignée.");
+    expect(parsed.text).toContain("Bilan vasculaire");
+    expect(parsed.text).toContain("Athéromatose polyvasculaire.");
+  });
+
+  it("renders the clinic settings as a letterhead: doctor identity, membership, RPPS/Adeli, and address", async () => {
+    const settings = makeSettings({
+      doctor_name: "Dr Pembele",
+      professional_membership: "Membre de la société française de radiologie",
+      rpps_number: "12345678901",
+      adeli_number: "939912345",
+      address: "6 avenue Yuri Gagarine 93270 Sevran",
+    });
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), settings);
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Dr Pembele");
+    expect(parsed.text).toContain("Membre de la société française de radiologie");
+    expect(parsed.text).toContain("12345678901");
+    expect(parsed.text).toContain("939912345");
+    expect(parsed.text).toContain("6 avenue Yuri Gagarine 93270 Sevran");
+  });
+
+  it("builds the TECHNIQUE paragraph from the Mindray service date and characteristics", async () => {
+    const settings = makeSettings({
+      mindray_service_date: "2020-03-01",
+      mindray_characteristics: "Mindray Resona 7, sonde linéaire L14-5",
+    });
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), settings);
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Mindray Resona 7, sonde linéaire L14-5");
+    expect(parsed.text).toContain("2020-03-01");
+  });
+
+  it("falls back to a generic TECHNIQUE sentence when Mindray settings are unfilled", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("échographe vasculaire");
   });
 });

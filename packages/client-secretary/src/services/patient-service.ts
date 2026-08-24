@@ -1,3 +1,5 @@
+import { ApiError } from "./api-error"
+
 const API_BASE_URL = "http://localhost:3000"
 
 export type Sex = "M" | "F"
@@ -66,13 +68,6 @@ export type ApiErrorCode =
   | "PATIENT_NOT_FOUND"
   | "UNKNOWN_ERROR"
 
-export class ApiError extends Error {
-  constructor(public readonly code: ApiErrorCode) {
-    super(code)
-    this.name = "ApiError"
-  }
-}
-
 export const apiErrorLabels: Record<ApiErrorCode, string> = {
   FIRST_NAME_REQUIRED: "Le prénom est requis.",
   LAST_NAME_REQUIRED: "Le nom est requis.",
@@ -88,8 +83,8 @@ export const apiErrorLabels: Record<ApiErrorCode, string> = {
 }
 
 export function apiErrorMessage(error: unknown): string {
-  return error instanceof ApiError
-    ? apiErrorLabels[error.code]
+  return error instanceof ApiError && error.code in apiErrorLabels
+    ? apiErrorLabels[error.code as ApiErrorCode]
     : apiErrorLabels.UNKNOWN_ERROR
 }
 
@@ -100,7 +95,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   const body = await response.json().catch(() => undefined)
   if (!response.ok) {
-    throw new ApiError((body?.error ?? "UNKNOWN_ERROR") as ApiErrorCode)
+    throw new ApiError<ApiErrorCode>(body?.error ?? "UNKNOWN_ERROR")
   }
   return body as T
 }

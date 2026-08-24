@@ -4,37 +4,63 @@ import { validateCreateReport } from "./reports.js";
 describe("validateCreateReport", () => {
   const valid = { doctor_name: "Dr. Martin", exam_date: "2026-08-13" };
 
-  it("accepts the minimal valid payload, defaulting every vessel to empty/not-abnormal", () => {
+  it("accepts the minimal valid payload, defaulting every optional field to empty/null", () => {
     const result = validateCreateReport(valid);
     expect(result).toEqual({
       valid: true,
       data: {
         doctor_name: "Dr. Martin",
         exam_date: "2026-08-13",
-        carotide_text: "",
-        carotide_abnormal: false,
-        artere_membre_sup_text: "",
-        artere_membre_sup_abnormal: false,
-        veine_membre_sup_text: "",
-        veine_membre_sup_abnormal: false,
-        artere_membre_inf_text: "",
-        artere_membre_inf_abnormal: false,
-        veine_membre_inf_text: "",
-        veine_membre_inf_abnormal: false,
+        correspondant_dossier: "",
+        indication: "",
+        tsa_imt_droit: null,
+        tsa_imt_gauche: null,
+        tsa_aci_acc_ratio_droit: null,
+        tsa_aci_acc_ratio_gauche: null,
+        tsa_findings_text: "",
+        aorte_diametre: "",
+        aorte_anevrisme: false,
+        aorte_anevrisme_diametre_mm: null,
+        aorte_findings_text: "",
+        mi_pression_cheville_droite: null,
+        mi_pression_cheville_gauche: null,
+        mi_pression_bras_droit: null,
+        mi_pression_bras_gauche: null,
+        mi_findings_text: "",
+        conclusion: "",
       },
     });
   });
 
-  it("accepts a partial vessel payload (only carotide filled in)", () => {
+  it("accepts a partial payload (only TSA filled in)", () => {
     const result = validateCreateReport({
       ...valid,
-      carotide: { text: "Plaque modérée", abnormal: true },
+      tsa: { findings_text: "Plaque modérée", imt_droit: 0.62 },
     });
     expect(result.valid).toBe(true);
     if (result.valid) {
-      expect(result.data.carotide_text).toBe("Plaque modérée");
-      expect(result.data.carotide_abnormal).toBe(true);
-      expect(result.data.veine_membre_inf_text).toBe("");
+      expect(result.data.tsa_findings_text).toBe("Plaque modérée");
+      expect(result.data.tsa_imt_droit).toBe(0.62);
+      expect(result.data.mi_findings_text).toBe("");
+    }
+  });
+
+  it("accepts the four IPS pressure inputs and the aneurysm fields", () => {
+    const result = validateCreateReport({
+      ...valid,
+      membres_inferieurs: {
+        pression_cheville_droite: 120,
+        pression_cheville_gauche: 130,
+        pression_bras_droit: 130,
+        pression_bras_gauche: 140,
+      },
+      aorte_abdominale: { anevrisme: true, anevrisme_diametre_mm: 34 },
+    });
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.data.mi_pression_cheville_droite).toBe(120);
+      expect(result.data.aorte_anevrisme).toBe(true);
+      expect(result.data.aorte_anevrisme_diametre_mm).toBe(34);
     }
   });
 
@@ -73,19 +99,27 @@ describe("validateCreateReport", () => {
     });
   });
 
-  it("rejects a non-boolean abnormal flag", () => {
+  it("rejects a non-numeric IMT value", () => {
     const result = validateCreateReport({
       ...valid,
-      carotide: { abnormal: "yes" },
+      tsa: { imt_droit: "élevé" },
     });
-    expect(result).toEqual({ valid: false, error: "FINDING_ABNORMAL_VALUE_INVALID" });
+    expect(result).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
   });
 
-  it("rejects a non-string finding text", () => {
+  it("rejects a non-string findings text", () => {
     const result = validateCreateReport({
       ...valid,
-      carotide: { text: 123 },
+      tsa: { findings_text: 123 },
     });
-    expect(result).toEqual({ valid: false, error: "FINDING_ABNORMAL_VALUE_INVALID" });
+    expect(result).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+  });
+
+  it("rejects a non-boolean anevrisme flag", () => {
+    const result = validateCreateReport({
+      ...valid,
+      aorte_abdominale: { anevrisme: "yes" },
+    });
+    expect(result).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
   });
 });

@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { VESSEL_KEYS, VESSEL_LABELS, RISK_FACTOR_KEYS, RISK_FACTOR_LABELS } from "./index.js";
+import {
+  REPORT_SECTION_KEYS,
+  REPORT_SECTION_LABELS,
+  REPORT_FIELD_LABELS,
+  RISK_FACTOR_KEYS,
+  RISK_FACTOR_LABELS,
+} from "./index.js";
 
 describe("shared labels", () => {
-  it("has exactly 5 vessel keys, each with a non-empty French label", () => {
-    expect(VESSEL_KEYS).toHaveLength(5);
-    for (const key of VESSEL_KEYS) {
-      expect(VESSEL_LABELS[key]).toBeTruthy();
+  it("has exactly 3 report section keys (arterial-only scope), each with a non-empty French label", () => {
+    expect(REPORT_SECTION_KEYS).toEqual(["tsa", "aorte_abdominale", "membres_inferieurs"]);
+    for (const key of REPORT_SECTION_KEYS) {
+      expect(REPORT_SECTION_LABELS[key]).toBeTruthy();
+    }
+  });
+
+  it("has a non-empty French label for every report field", () => {
+    for (const label of Object.values(REPORT_FIELD_LABELS)) {
+      expect(label).toBeTruthy();
     }
   });
 

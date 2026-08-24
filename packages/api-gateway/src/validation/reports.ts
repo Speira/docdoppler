@@ -1,16 +1,35 @@
 import { isValidIsoDate } from "./patients.js";
-import { VESSEL_KEYS } from "@speira-docdoppler/shared-labels";
 import type { CreateReportInput } from "../db/reports.js";
 
 export type ReportValidationErrorCode =
   | "DOCTOR_NAME_REQUIRED"
   | "EXAM_DATE_REQUIRED"
   | "EXAM_DATE_INVALID"
-  | "FINDING_ABNORMAL_VALUE_INVALID";
+  | "REPORT_FIELD_INVALID";
 
 export type ReportValidationResult<T> =
   | { valid: true; data: T }
   | { valid: false; error: ReportValidationErrorCode };
+
+function optionalString(value: unknown): string | typeof INVALID {
+  if (value === undefined) return "";
+  if (typeof value !== "string") return INVALID;
+  return value;
+}
+
+function optionalNumber(value: unknown): number | null | typeof INVALID {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "number" || Number.isNaN(value)) return INVALID;
+  return value;
+}
+
+function optionalBoolean(value: unknown): boolean | typeof INVALID {
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") return INVALID;
+  return value;
+}
+
+const INVALID = Symbol("invalid");
 
 export function validateCreateReport(
   body: unknown,
@@ -27,25 +46,42 @@ export function validateCreateReport(
     return { valid: false, error: "EXAM_DATE_INVALID" };
   }
 
-  const data: Record<string, unknown> = {
-    doctor_name: b.doctor_name.trim(),
-    exam_date: b.exam_date,
+  const tsa = (b.tsa ?? {}) as Record<string, unknown>;
+  const aorte = (b.aorte_abdominale ?? {}) as Record<string, unknown>;
+  const mi = (b.membres_inferieurs ?? {}) as Record<string, unknown>;
+
+  const fields = {
+    correspondant_dossier: optionalString(b.correspondant_dossier),
+    indication: optionalString(b.indication),
+    tsa_imt_droit: optionalNumber(tsa.imt_droit),
+    tsa_imt_gauche: optionalNumber(tsa.imt_gauche),
+    tsa_aci_acc_ratio_droit: optionalNumber(tsa.aci_acc_ratio_droit),
+    tsa_aci_acc_ratio_gauche: optionalNumber(tsa.aci_acc_ratio_gauche),
+    tsa_findings_text: optionalString(tsa.findings_text),
+    aorte_diametre: optionalString(aorte.diametre),
+    aorte_anevrisme: optionalBoolean(aorte.anevrisme),
+    aorte_anevrisme_diametre_mm: optionalNumber(aorte.anevrisme_diametre_mm),
+    aorte_findings_text: optionalString(aorte.findings_text),
+    mi_pression_cheville_droite: optionalNumber(mi.pression_cheville_droite),
+    mi_pression_cheville_gauche: optionalNumber(mi.pression_cheville_gauche),
+    mi_pression_bras_droit: optionalNumber(mi.pression_bras_droit),
+    mi_pression_bras_gauche: optionalNumber(mi.pression_bras_gauche),
+    mi_findings_text: optionalString(mi.findings_text),
+    conclusion: optionalString(b.conclusion),
   };
 
-  // Both a bad `text` and a bad `abnormal` map to the same closed-set code
-  // (FINDING_ABNORMAL_VALUE_INVALID) — the spec doesn't split these into two
-  // codes, and the frontend form never sends the wrong type for either.
-  for (const vessel of VESSEL_KEYS) {
-    const raw = (b[vessel] ?? {}) as Record<string, unknown>;
-    if (raw.text !== undefined && typeof raw.text !== "string") {
-      return { valid: false, error: "FINDING_ABNORMAL_VALUE_INVALID" };
+  for (const value of Object.values(fields)) {
+    if (value === INVALID) {
+      return { valid: false, error: "REPORT_FIELD_INVALID" };
     }
-    if (raw.abnormal !== undefined && typeof raw.abnormal !== "boolean") {
-      return { valid: false, error: "FINDING_ABNORMAL_VALUE_INVALID" };
-    }
-    data[`${vessel}_text`] = (raw.text as string) ?? "";
-    data[`${vessel}_abnormal`] = (raw.abnormal as boolean) ?? false;
   }
 
-  return { valid: true, data: data as unknown as CreateReportInput };
+  return {
+    valid: true,
+    data: {
+      doctor_name: b.doctor_name.trim(),
+      exam_date: b.exam_date,
+      ...fields,
+    } as unknown as CreateReportInput,
+  };
 }

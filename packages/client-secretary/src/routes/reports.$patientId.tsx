@@ -8,6 +8,7 @@ import { i18next } from '#/lib/i18n'
 export const Route = createFileRoute('/reports/$patientId')({
   loader: ({ params }) => ({
     patient: ReportBuilderHelper.loadPatient(Number(params.patientId)),
+    settings: ReportBuilderHelper.loadSettings(),
   }),
   errorComponent: ({ error }) => <RouteError error={error} />,
   head: () => ({
@@ -18,6 +19,12 @@ export const Route = createFileRoute('/reports/$patientId')({
 
 function RouteComponent() {
   const { patientId } = Route.useParams()
-  const { patient } = Route.useLoaderData()
-  return <ReportBuilder patientId={Number(patientId)} patientPromise={patient} />
+  const { patient, settings } = Route.useLoaderData()
+  return (
+    <ReportBuilder
+      patientId={Number(patientId)}
+      patientPromise={patient}
+      settingsPromise={settings}
+    />
+  )
 }

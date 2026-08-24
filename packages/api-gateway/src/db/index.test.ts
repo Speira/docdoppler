@@ -286,7 +286,7 @@ describe("db schema", () => {
     expect(tables).toContain("reports");
   });
 
-  it("rejects an invalid abnormal flag on a report", () => {
+  it("rejects an invalid anevrisme flag on a report", () => {
     const db = createConnection(":memory:");
     const { lastInsertRowid: patientId } = db
       .prepare(
@@ -296,13 +296,13 @@ describe("db schema", () => {
     expect(() =>
       db
         .prepare(
-          "INSERT INTO reports (patient_id, doctor_name, exam_date, carotide_abnormal) VALUES (?, ?, ?, ?)",
+          "INSERT INTO reports (patient_id, doctor_name, exam_date, aorte_anevrisme) VALUES (?, ?, ?, ?)",
         )
         .run(patientId, "Dr. Martin", "2026-08-13", 2),
     ).toThrow(/CHECK constraint failed/);
   });
 
-  it("defaults report vessel columns to empty text and not-abnormal", () => {
+  it("defaults report text columns to empty and numeric findings to null", () => {
     const db = createConnection(":memory:");
     const { lastInsertRowid: patientId } = db
       .prepare(
@@ -317,10 +317,11 @@ describe("db schema", () => {
     const report = db
       .prepare("SELECT * FROM reports WHERE id = ?")
       .get(lastInsertRowid) as Record<string, unknown>;
-    expect(report.carotide_text).toBe("");
-    expect(report.carotide_abnormal).toBe(0);
-    expect(report.veine_membre_inf_text).toBe("");
-    expect(report.veine_membre_inf_abnormal).toBe(0);
+    expect(report.tsa_findings_text).toBe("");
+    expect(report.mi_findings_text).toBe("");
+    expect(report.aorte_anevrisme).toBe(0);
+    expect(report.tsa_imt_droit).toBeNull();
+    expect(report.mi_ips_droit).toBeNull();
     expect(report.created_at).toBeTruthy();
   });
 

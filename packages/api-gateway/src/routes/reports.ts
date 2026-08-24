@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import type Database from "better-sqlite3";
 import { getPatient, getLatestRiskFactors } from "../db/patients.js";
 import { createReport, listReportsByPatient, getReport } from "../db/reports.js";
+import { getSettings } from "../db/settings.js";
 import { validateCreateReport } from "../validation/reports.js";
 import { buildReportPdf } from "../pdf/report-pdf.js";
 
@@ -55,7 +56,8 @@ export function createReportsRouter(db: Database.Database): Router {
       return;
     }
     const riskFactors = getLatestRiskFactors(db, patient.id);
-    const pdfBytes = await buildReportPdf(patient, riskFactors, report);
+    const settings = getSettings(db);
+    const pdfBytes = await buildReportPdf(patient, riskFactors, report, settings);
     res.setHeader("Content-Type", "application/pdf");
     res.status(200).send(Buffer.from(pdfBytes));
   });

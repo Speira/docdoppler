@@ -13,12 +13,16 @@ export type PatientWithLatestReport = PatientRecord & { latestReportId: number |
 export class ReportListHelper {
   static async listPatientsWithLatestReport(): Promise<PatientWithLatestReport[]> {
     const patients = await patientService.listPatients()
-    return Promise.all(
-      patients.map(async (patient) => {
-        const reports = await reportService.listReports(patient.id)
-        return { ...patient, latestReportId: reports[0]?.id ?? null }
-      }),
+    const results = await Promise.allSettled(
+      patients.map((patient) => reportService.listReports(patient.id)),
     )
+    return patients.map((patient, index) => {
+      const result = results[index]
+      return {
+        ...patient,
+        latestReportId: result.status === 'fulfilled' ? result.value[0]?.id ?? null : null,
+      }
+    })
   }
 
   static filterPatients(

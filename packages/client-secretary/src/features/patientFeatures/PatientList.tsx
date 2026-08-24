@@ -105,6 +105,11 @@ function PatientListView({
           </p>
         </div>
         <div className="flex gap-2">
+          <Link to="/parametres">
+            <Button type="button" variant="outline">
+              {t('Paramètres')}
+            </Button>
+          </Link>
           <Link to="/reports">
             <Button type="button" variant="outline">
               {t('Rapports')}
