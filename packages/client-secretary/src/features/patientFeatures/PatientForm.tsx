@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { patientHistoryFieldGroups } from './consts'
+import { PatientListHelper } from './PatientListHelper'
 import type { PatientFormApi } from './usePatientForm'
 import type { Sex } from '#/services/patient-service'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -12,6 +13,10 @@ import { RadioGroup, RadioGroupItem } from '#/components/ui/radio-group'
 const riskFactorKeys = patientHistoryFieldGroups.flatMap((group) =>
   group.fields.map((field) => field.key),
 )
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10)
+}
 
 export function PatientForm({ form }: { form: PatientFormApi }) {
   const { t } = useTranslation()
@@ -78,32 +83,45 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
           </form.Field>
 
           <form.Field name="dob">
-            {(field) => (
-              <div className="grid gap-2">
-                <Label htmlFor={field.name}>
-                  {t('Date de naissance')}{' '}
-                  <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="date"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={!field.state.meta.isValid}
-                />
-                {field.state.meta.isTouched && !field.state.meta.isValid && (
-                  <p className="text-sm text-destructive">
-                    {field.state.meta.errors
-                      .map((error) =>
-                        error?.message ? t(error.message) : error?.message,
-                      )
-                      .join(', ')}
-                  </p>
-                )}
-              </div>
-            )}
+            {(field) => {
+              const age = field.state.value
+                ? PatientListHelper.calculateAge(field.state.value)
+                : null
+              const showMinorWarning =
+                field.state.meta.isValid && age !== null && age < 18
+              return (
+                <div className="grid gap-2">
+                  <Label htmlFor={field.name}>
+                    {t('Date de naissance')}{' '}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    type="date"
+                    max={today()}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={!field.state.meta.isValid}
+                  />
+                  {field.state.meta.isTouched && !field.state.meta.isValid && (
+                    <p className="text-sm text-destructive">
+                      {field.state.meta.errors
+                        .map((error) =>
+                          error?.message ? t(error.message) : error?.message,
+                        )
+                        .join(', ')}
+                    </p>
+                  )}
+                  {showMinorWarning && (
+                    <p className="text-sm text-amber-600 dark:text-amber-500">
+                      {t('Patient mineur ({{age}} ans)', { age })}
+                    </p>
+                  )}
+                </div>
+              )
+            }}
           </form.Field>
 
           <form.Field name="exam_date">

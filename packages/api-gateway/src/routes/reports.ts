@@ -4,7 +4,7 @@ import { getPatient, getLatestRiskFactors } from "../db/patients.js";
 import { createReport, listReportsByPatient, getReport } from "../db/reports.js";
 import { getSettings } from "../db/settings.js";
 import { validateCreateReport } from "../validation/reports.js";
-import { buildReportPdf } from "../pdf/report-pdf.js";
+import { buildReportPdf, buildReportPdfFilename } from "../pdf/report-pdf.js";
 
 function parseId(rawId: string): number | undefined {
   const id = Number(rawId);
@@ -58,7 +58,12 @@ export function createReportsRouter(db: Database.Database): Router {
     const riskFactors = getLatestRiskFactors(db, patient.id);
     const settings = getSettings(db);
     const pdfBytes = await buildReportPdf(patient, riskFactors, report, settings);
+    const filename = buildReportPdfFilename(patient, report);
     res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
     res.status(200).send(Buffer.from(pdfBytes));
   });
 

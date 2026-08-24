@@ -144,6 +144,15 @@ describe("GET /reports/:id/pdf", () => {
     expect(response.body.slice(0, 4).toString()).toBe("%PDF");
   });
 
+  it("sets a Content-Disposition header with a descriptive filename", async () => {
+    const report = await createTestReport();
+    const response = await supertest(app).get(`/reports/${report.id}/pdf`);
+    expect(response.headers["content-disposition"]).toBe(
+      `inline; filename="Rapport_Echodoppler_DUPONT_Jean_2026-08-13_${report.id}.pdf"; ` +
+        `filename*=UTF-8''Rapport_Echodoppler_DUPONT_Jean_2026-08-13_${report.id}.pdf`,
+    );
+  });
+
   it("returns 404 for an unknown report", async () => {
     const response = await supertest(app).get("/reports/999/pdf");
     expect(response.status).toBe(404);

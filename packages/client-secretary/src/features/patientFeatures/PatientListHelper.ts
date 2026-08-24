@@ -1,5 +1,6 @@
 import { patientService } from '#/services/patient-service'
 import type { PatientRecord } from '#/services/patient-service'
+import { formatDateFR } from '#/lib/date'
 
 const COMBINING_DIACRITICS = /[̀-ͯ]/g
 
@@ -24,8 +25,7 @@ export class PatientListHelper {
   }
 
   static formatDate(isoDate: string): string {
-    const [year, month, day] = isoDate.split('-')
-    return `${day}/${month}/${year}`
+    return formatDateFR(isoDate)
   }
 
   static calculateAge(dob: string): number {

@@ -46,7 +46,12 @@ export const patientHistoryFieldGroups: { title: string; fields: HistoryField[] 
 export const patientFormSchema = z.object({
   first_name: z.string().trim().min(1, 'Le prénom est requis.'),
   last_name: z.string().trim().min(1, 'Le nom est requis.'),
-  dob: z.string().min(1, 'La date de naissance est requise.'),
+  dob: z
+    .string()
+    .min(1, 'La date de naissance est requise.')
+    .refine((value) => value <= new Date().toISOString().slice(0, 10), {
+      message: 'La date de naissance ne peut pas être dans le futur.',
+    }),
   exam_date: z.string().min(1, "La date de l'examen est requise."),
   sex: z.enum(['M', 'F']),
   diabetes: z.boolean(),

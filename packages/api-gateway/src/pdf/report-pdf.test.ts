@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractText, getDocumentProxy } from "unpdf";
-import { buildReportPdf } from "./report-pdf.js";
+import { buildReportPdf, buildReportPdfFilename } from "./report-pdf.js";
 import type { PatientRow, RiskFactorsRow } from "../db/patients.js";
 import type { ReportRow } from "../db/reports.js";
 import type { ClinicSettingsRow } from "../db/settings.js";
@@ -195,5 +195,23 @@ describe("buildReportPdf", () => {
     const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("échographe vasculaire");
+  });
+});
+
+describe("buildReportPdfFilename", () => {
+  it("builds Rapport_Echodoppler_LASTNAME_FirstName_examDate_id.pdf", () => {
+    const filename = buildReportPdfFilename(
+      makePatient({ last_name: "Dupont", first_name: "Jean" }),
+      makeReport({ id: 42, exam_date: "2026-08-13" }),
+    );
+    expect(filename).toBe("Rapport_Echodoppler_DUPONT_Jean_2026-08-13_42.pdf");
+  });
+
+  it("strips accents and replaces unsafe characters", () => {
+    const filename = buildReportPdfFilename(
+      makePatient({ last_name: "Ünïçödé O'Brien", first_name: "Jean-Pierre" }),
+      makeReport({ id: 7, exam_date: "2026-08-13" }),
+    );
+    expect(filename).toBe("Rapport_Echodoppler_UNICODE-O-BRIEN_Jean-Pierre_2026-08-13_7.pdf");
   });
 });

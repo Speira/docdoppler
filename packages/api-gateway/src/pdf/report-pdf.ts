@@ -14,6 +14,31 @@ const MARGIN = 50;
 const LINE_HEIGHT = 16;
 const ADDRESS_COLUMN_WIDTH = 200;
 
+const dateFormatterFR = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+function formatDateFR(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return dateFormatterFR.format(new Date(year, month - 1, day));
+}
+
+function sanitizeForFilename(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function buildReportPdfFilename(patient: PatientRow, report: ReportRow): string {
+  const lastName = sanitizeForFilename(patient.last_name).toUpperCase();
+  const firstName = sanitizeForFilename(patient.first_name);
+  return `Rapport_Echodoppler_${lastName}_${firstName}_${report.exam_date}_${report.id}.pdf`;
+}
+
 const FALLBACK_TECHNIQUE_SENTENCE =
   "Examen réalisé avec l'échographe vasculaire (appareil à renseigner via les paramètres du cabinet).";
 
@@ -140,7 +165,7 @@ export async function buildReportPdf(
 
   draw("Identité du patient", 12, true);
   draw(`${patient.last_name.toUpperCase()} ${patient.first_name}`, 10);
-  draw(`Date de naissance : ${patient.dob}`, 10);
+  draw(`Date de naissance : ${formatDateFR(patient.dob)}`, 10);
   draw(`Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`, 10);
   y -= LINE_HEIGHT / 2;
 

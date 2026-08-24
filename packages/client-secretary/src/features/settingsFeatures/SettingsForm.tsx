@@ -90,6 +90,7 @@ function SettingsFormView({
   const form = useSettingsForm(SettingsHelper.defaultValuesFrom(settings), async (values) => {
     try {
       await SettingsHelper.saveSettings(values)
+      form.reset(values)
       toast.success(t('Paramètres enregistrés'))
     } catch (error) {
       toast.error(t('Échec de l’enregistrement'), {
@@ -160,11 +161,15 @@ function SettingsFormView({
         </Card>
 
         <div className="flex justify-end gap-2">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
+          <form.Subscribe
+            selector={(state) =>
+              [state.canSubmit, state.isSubmitting, state.isDirty] as const
+            }
+          >
+            {([canSubmit, isSubmitting, isDirty]) => (
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={!canSubmit || !isDirty}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Save />

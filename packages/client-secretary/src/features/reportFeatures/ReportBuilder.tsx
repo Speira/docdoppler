@@ -18,6 +18,7 @@ import type { ReportBuilderFormValues } from './types'
 import { reportApiErrorMessage, reportService } from '#/services/report-service'
 import type { PatientWithRiskFactors } from '#/services/patient-service'
 import type { ClinicSettingsRecord } from '#/services/settings-service'
+import { formatDateFR } from '#/lib/date'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
@@ -332,7 +333,7 @@ function ReportBuilderView({
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>
-            {t('Date de naissance')} : {patient.dob} (
+            {t('Date de naissance')} : {formatDateFR(patient.dob)} (
             {patient.sex === 'F' ? t('Féminin') : t('Masculin')})
           </p>
           <p>
@@ -421,11 +422,17 @@ function ReportBuilderView({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Textarea
-              value={form.state.values.indication}
-              onChange={(e) => form.setFieldValue('indication', e.target.value)}
-              placeholder={t('Motif de l’examen…')}
-            />
+            <form.Field name="indication">
+              {(field) => (
+                <Textarea
+                  id={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder={t('Motif de l’examen…')}
+                />
+              )}
+            </form.Field>
           </CardContent>
         </Card>
 
@@ -549,11 +556,17 @@ function ReportBuilderView({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Textarea
-              value={form.state.values.conclusion}
-              onChange={(e) => form.setFieldValue('conclusion', e.target.value)}
-              placeholder={t('Résumé de l’examen…')}
-            />
+            <form.Field name="conclusion">
+              {(field) => (
+                <Textarea
+                  id={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder={t('Résumé de l’examen…')}
+                />
+              )}
+            </form.Field>
           </CardContent>
         </Card>
 

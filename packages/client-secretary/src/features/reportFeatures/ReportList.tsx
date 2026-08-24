@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { Eye, Plus } from 'lucide-react'
 import { Suspense, use, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -46,6 +46,7 @@ function ReportListView({
 }) {
   const patients = use(patientsPromise)
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(
@@ -91,7 +92,21 @@ function ReportListView({
                 </TableRow>
               )}
               {filtered.map((p) => (
-                <TableRow key={p.id}>
+                <TableRow
+                  key={p.id}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer hover:bg-secondary/50"
+                  onClick={() =>
+                    navigate({ to: '/patients/add', search: { id: p.id } })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate({ to: '/patients/add', search: { id: p.id } })
+                    }
+                  }}
+                >
                   <TableCell className="font-medium">
                     {p.last_name.toUpperCase()} {p.first_name}
                   </TableCell>
@@ -103,6 +118,7 @@ function ReportListView({
                           href={reportService.reportPdfUrl(p.latestReportId)}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Button size="sm" variant="outline">
                             <Eye />
@@ -110,7 +126,11 @@ function ReportListView({
                           </Button>
                         </a>
                       )}
-                      <Link to="/reports/$patientId" params={{ patientId: String(p.id) }}>
+                      <Link
+                        to="/reports/$patientId"
+                        params={{ patientId: String(p.id) }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button size="sm" variant="outline">
                           <Plus />
                           {t('Nouveau rapport')}
