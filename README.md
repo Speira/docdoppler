@@ -46,6 +46,6 @@ cd packages/dicom-bridge && .venv/bin/pytest
 ## Docs
 
 - `CLAUDE.md` — project constraints and data model (read this first)
-- `docs/report-module.md` — doctor report builder spec (implemented; IPS/ABI is the one piece not yet built, pending doctor confirmation of the formula)
+- `docs/report-module.md` — doctor report builder spec (implemented, including IPS/ABI — formula confirmed from real doctor documents)
 - `docs/dicom-worklist-bridge.md` — Mindray-side DICOM configuration notes and open questions
 - `docs/superpowers/specs/` and `docs/superpowers/plans/` — design docs and implementation plans for past and in-progress feature work
