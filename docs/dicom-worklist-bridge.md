@@ -20,15 +20,31 @@ been tested against the real Mindray unit, and "save patient" is **not**
 wired to this module. Everything under "Not yet confirmed" and "Explicitly
 out of scope" below still applies.
 
-**Hardening pass (2026-08-24):** since dcmtk/findscu isn't available in the
-dev sandbox, this pass focused on protocol-level correctness reachable
-without the real unit: French-accent character encoding
+**Hardening pass (2026-08-24):** at the time, dcmtk/findscu wasn't available
+in the dev sandbox, so this pass focused on protocol-level correctness
+reachable without the real unit: French-accent character encoding
 (`SpecificCharacterSet`), previously-missing MWL tags
 (`ScheduledStationAETitle`, `ScheduledProcedureStepID`,
 `RequestedProcedureID`), a defensive fallback for malformed date queries,
 and a startup warning when the calling-AE allowlist is unset. No behavior
 change to the pull-based query flow or the save-patient gate. See
 "Worklist query behavior" below for the updated tag list.
+
+**Local loopback smoke test (2026-08-26):** `packages/dicom-bridge/.venv`
+now has `pynetdicom`/`pydicom` installed, which bundle their own
+`echoscu`/`findscu` CLI tools — dcmtk itself still isn't installed, but
+these serve the same purpose for testing without the real Mindray. Ran the
+SCP locally (`BRIDGE_ALLOWED_CALLING_AETS=mindray`) against the real,
+running `api-gateway` and its 2-row `patients` table: C-ECHO returned
+0x0000, and a Modality Worklist C-FIND for each patient's `exam_date`
+correctly returned that patient's real name/ID/DOB pulled live from
+SQLite. Also confirmed `BRIDGE_ALLOWED_CALLING_AETS` actually rejects an
+unrecognized calling AE title. Full transcript in
+`packages/dicom-bridge/README.md` ("Local loopback smoke test"). This
+validates the bridge's own logic end-to-end but is not a substitute for
+the on-site Mindray test below — nothing here confirms Mindray-side
+behavior (its actual calling AE title, whether it honors
+`ScheduledStationAETitle`, etc.).
 
 ## Confirmed Mindray configuration (verified on-site 2026-07-28)
 

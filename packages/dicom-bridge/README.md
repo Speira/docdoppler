@@ -54,6 +54,35 @@ real use. While `BRIDGE_ALLOWED_CALLING_AETS` is unset, `main()` prints a
 startup warning to make this state visible rather than silently discoverable
 only by reading code.
 
+## Local loopback smoke test (done 2026-08-26)
+
+Confirmed the SCP itself works end-to-end against the real `patients` table,
+without the Mindray unit — using this project's own `.venv` (which has
+`pynetdicom`/`pydicom` installed, including their bundled `echoscu`/`findscu`
+CLI tools, so no dcmtk install is needed for this kind of test):
+
+```bash
+# with api-gateway running (pnpm dev, localhost:3000) and 2 real patients
+# in the DB (exam_date 2026-08-21 and 2026-08-25)
+BRIDGE_ALLOWED_CALLING_AETS=mindray BRIDGE_BIND_HOST=127.0.0.1 \
+  .venv/bin/python -m dicom_bridge.run &
+
+.venv/bin/echoscu -aet mindray -aec DOCDOPPLER -v 127.0.0.1 11112
+# I: Received Echo Response (Status: 0x0000 - Success)
+
+.venv/bin/findscu -W -aet mindray -aec DOCDOPPLER -v \
+  -k "ScheduledProcedureStepSequence[0].ScheduledProcedureStepStartDate=20260821" \
+  127.0.0.1 11112
+# returns Dupont^Jean (PatientID 1, DOB 19580312) — real DB row, Find SCP Result 0x0000
+```
+
+Also confirmed `BRIDGE_ALLOWED_CALLING_AETS` actually enforces: a C-ECHO
+with `-aet SOME_RANDOM_AE` was rejected ("Calling AE title not recognised").
+This validates the SCP's own logic (C-ECHO handler, C-FIND → `GET /worklist`
+→ real SQLite row → DICOM dataset mapping, and the AE-title allowlist) but
+**not** anything Mindray-specific — the checklist below, which needs the
+real console, is still open.
+
 ## On-site validation checklist (not yet done)
 
 - [ ] C-ECHO from the Mindray console succeeds against this SCP
