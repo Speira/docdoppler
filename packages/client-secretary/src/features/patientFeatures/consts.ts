@@ -27,8 +27,8 @@ export const patientHistoryFieldGroups: { title: string; fields: HistoryField[] 
     title: 'Facteurs de risque cardiovasculaire',
     fields: [
       { key: 'diabetes', label: 'Diabète' },
-      { key: 'hypertension', label: 'Hypertension' },
-      { key: 'cholesterol', label: 'Hypercholestérolémie' },
+      { key: 'hypertension', label: 'HTA' },
+      { key: 'cholesterol', label: 'Dyslipidémie' },
       { key: 'obesity', label: 'Obésité' },
       { key: 'smoking', label: 'Tabagisme' },
     ],

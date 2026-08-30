@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { patientFormSchema } from './consts'
+import { patientFormSchema, patientHistoryFieldGroups } from './consts'
 
 function validPatient(dob: string) {
   return {
@@ -42,5 +42,17 @@ describe('patientFormSchema dob', () => {
   it('rejects an empty date of birth', () => {
     const result = patientFormSchema.safeParse(validPatient(''))
     expect(result.success).toBe(false)
+  })
+})
+
+describe('patientHistoryFieldGroups labels', () => {
+  it('labels hypertension as HTA and cholesterol as Dyslipidémie, per doctor feedback', () => {
+    const fields = patientHistoryFieldGroups.flatMap((group) => group.fields)
+    expect(fields.find((field) => field.key === 'hypertension')?.label).toBe(
+      'HTA',
+    )
+    expect(fields.find((field) => field.key === 'cholesterol')?.label).toBe(
+      'Dyslipidémie',
+    )
   })
 })

@@ -36,4 +36,9 @@ describe("shared labels", () => {
       expect(RISK_FACTOR_LABELS[key]).toBeTruthy();
     }
   });
+
+  it("labels hypertension as HTA and cholesterol as Dyslipidémie, per doctor feedback", () => {
+    expect(RISK_FACTOR_LABELS.hypertension).toBe("HTA");
+    expect(RISK_FACTOR_LABELS.cholesterol).toBe("Dyslipidémie");
+  });
 });

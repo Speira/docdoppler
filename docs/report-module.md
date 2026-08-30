@@ -175,6 +175,46 @@ machine + serial number + service date — none of this is per-report data.
 - Purpose: drives DICOM worklist filtering (see dicom-worklist-bridge.md) and,
   later, patient list sorting/filtering by appointment date
 
+## REVISION 2026-08-31 — doctor feedback on PDF/form after real use
+
+- **Risk factor labels renamed**: `hypertension` now labels as **"HTA"**, `cholesterol`
+  now labels as **"Dyslipidémie"** (was "Hypercholestérolémie"). Changed in
+  `packages/shared-labels/src/riskFactors.ts` (drives report builder + PDF) and
+  duplicated in `packages/client-secretary/src/features/patientFeatures/consts.ts`
+  (drives the intake form checkboxes) — these two lists are not shared, both must
+  be edited together for any future label change.
+- **Indication is no longer manually typed.** The free-text "Indication" card was
+  removed from the report builder form (`ReportBuilder.tsx`). The PDF's INDICATION
+  section now always nests a **"Bilan vasculaire"** subsection listing the
+  patient's active risk factors (this replaces the old standalone "Antécédents
+  médicaux" top-level section — it's the same list, just moved/relabeled).
+  `reports.indication` and `Correspondant du dossier` are unchanged in the schema;
+  `report-pdf.ts` still prints `report.indication` if a report happens to have
+  legacy free text saved, but new reports will always submit it empty.
+- **Droite/Gauche subsections in the PDF only** (report builder form layout is
+  unchanged — fields stay grouped by type, not by side). RÉSULTATS now nests each
+  side's numbers under a bold "Droite" / "Gauche" line within TSA and Membres
+  inférieurs. The shared MI brachial pressures (droit/gauche bras — used as the
+  reference denominator for both legs' IPS, see formula below) print above the
+  Droite/Gauche split since they aren't per-leg data. The findings free-text
+  field for TSA and MI stays a single field covering both sides, unchanged —
+  only display grouping changed, not data entry.
+- **Static reference-criteria notes added to the PDF**, one per RÉSULTATS
+  subsection (`TSA_REFERENCE_NOTE`, `AORTE_REFERENCE_NOTE`, `MI_REFERENCE_NOTE`
+  in `report-pdf.ts`), printed at 8pt below the findings text. These are
+  hardcoded French threshold reference text from the doctor's own feedback
+  (VSM stenosis bands for ACI, aorta diameter bands, MI spectre interpretation,
+  IPS bands) — **not** computed from the entered data, no auto-labeling of a
+  given measurement. This is deliberately just printed reference text, not
+  automated clinical interpretation (see "Explicitly out of scope" below) — the
+  doctor still writes his own findings/conclusion.
+- Explicitly NOT done (deferred, doctor's feedback didn't ask for it): no new
+  structured per-artery fields (BULBE plaque, ACI VSM value, artères
+  vertébrales flux, fémorale commune/poplitée/tibiale/fibulaire spectre) — the
+  doctor confirmed the existing free-text findings boxes are enough and just
+  wanted the reference thresholds printed. Revisit only if he asks for
+  structured entry per artery segment.
+
 ## IPS (Index de Pression Systolique / ABI) — formula confirmed 2026-08-21
 
 Doctor confirmed directly: "les deux chevilles et deux bras, [s]ystolique (pas

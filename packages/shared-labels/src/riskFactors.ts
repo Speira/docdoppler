@@ -13,8 +13,8 @@ export type RiskFactorKey = (typeof RISK_FACTOR_KEYS)[number];
 
 export const RISK_FACTOR_LABELS: Record<RiskFactorKey, string> = {
   diabetes: "Diabète",
-  hypertension: "Hypertension",
-  cholesterol: "Hypercholestérolémie",
+  hypertension: "HTA",
+  cholesterol: "Dyslipidémie",
   obesity: "Obésité",
   vertigo: "Vertiges",
   carotid_bruit: "Souffle carotidien",

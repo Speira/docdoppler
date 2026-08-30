@@ -8,6 +8,19 @@ import type { PatientRow, RiskFactorsRow } from "../db/patients.js";
 import type { ReportRow } from "../db/reports.js";
 import type { ClinicSettingsRow } from "../db/settings.js";
 
+const TSA_REFERENCE_NOTE =
+  "Repères : ACC = IMT. Bulbe = présence ou absence de plaque. " +
+  "ACI (VSM) : < 180 cm/s pas de sténose, 180-230 cm/s sténose modérée, > 230 cm/s sténose sévère. " +
+  "Artères vertébrales : flux antérograde normal, flux rétrograde pathologique.";
+
+const AORTE_REFERENCE_NOTE =
+  "Repères : diamètre antéro-postérieur normal < 25 mm, ectasie 25 à 29 mm, anévrisme > 30 mm.";
+
+const MI_REFERENCE_NOTE =
+  "Repères : artère fémorale commune (VSM et spectre) - triphasique normal, diphasique artériopathie débutante, " +
+  "monophasique pathologique ; AFS, poplitée, tibiale antérieure, tibiale postérieure, fibulaire : spectre. " +
+  "IPS normal 1,00 à 1,40 ; IPS < 0,90 = AOMI ; IPS > 1,40 = médiacalcose (artères incompressibles).";
+
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
 const MARGIN = 50;
@@ -169,7 +182,12 @@ export async function buildReportPdf(
   draw(`Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`, 10);
   y -= LINE_HEIGHT / 2;
 
-  draw("Antécédents médicaux", 12, true);
+  draw("INDICATION", 12, true);
+  drawField("Correspondant du dossier", report.correspondant_dossier || null);
+  if (report.indication.trim().length > 0) {
+    drawWrapped(report.indication, 10);
+  }
+  draw("Bilan vasculaire", 11, true);
   const activeRiskFactors = RISK_FACTOR_KEYS.filter((key) => riskFactors?.[key] === 1);
   if (activeRiskFactors.length === 0) {
     draw("Aucun antécédent renseigné.", 10);
@@ -180,15 +198,6 @@ export async function buildReportPdf(
   }
   y -= LINE_HEIGHT / 2;
 
-  draw("INDICATION", 12, true);
-  drawField("Correspondant du dossier", report.correspondant_dossier || null);
-  if (report.indication.trim().length > 0) {
-    drawWrapped(report.indication, 10);
-  } else {
-    draw("Non renseignée.", 10);
-  }
-  y -= LINE_HEIGHT / 2;
-
   draw("TECHNIQUE", 12, true);
   drawWrapped(buildTechniqueParagraph(settings), 10);
   y -= LINE_HEIGHT / 2;
@@ -196,13 +205,16 @@ export async function buildReportPdf(
   draw("RÉSULTATS", 12, true);
 
   draw(REPORT_SECTION_LABELS.tsa, 11, true);
+  draw("Droite", 10, true);
   drawField("IMT droit (mm)", report.tsa_imt_droit);
-  drawField("IMT gauche (mm)", report.tsa_imt_gauche);
   drawField("Ratio ACI/ACC droit", report.tsa_aci_acc_ratio_droit);
+  draw("Gauche", 10, true);
+  drawField("IMT gauche (mm)", report.tsa_imt_gauche);
   drawField("Ratio ACI/ACC gauche", report.tsa_aci_acc_ratio_gauche);
   if (report.tsa_findings_text.trim().length > 0) {
     drawWrapped(report.tsa_findings_text, 10);
   }
+  drawWrapped(TSA_REFERENCE_NOTE, 8);
   y -= LINE_HEIGHT / 2;
 
   draw(REPORT_SECTION_LABELS.aorte_abdominale, 11, true);
@@ -214,18 +226,22 @@ export async function buildReportPdf(
   if (report.aorte_findings_text.trim().length > 0) {
     drawWrapped(report.aorte_findings_text, 10);
   }
+  drawWrapped(AORTE_REFERENCE_NOTE, 8);
   y -= LINE_HEIGHT / 2;
 
   draw(REPORT_SECTION_LABELS.membres_inferieurs, 11, true);
-  drawField("Pression systolique cheville droite (mmHg)", report.mi_pression_cheville_droite);
-  drawField("Pression systolique cheville gauche (mmHg)", report.mi_pression_cheville_gauche);
   drawField("Pression systolique bras droit (mmHg)", report.mi_pression_bras_droit);
   drawField("Pression systolique bras gauche (mmHg)", report.mi_pression_bras_gauche);
+  draw("Droite", 10, true);
+  drawField("Pression systolique cheville droite (mmHg)", report.mi_pression_cheville_droite);
   drawField("IPS droit", report.mi_ips_droit);
+  draw("Gauche", 10, true);
+  drawField("Pression systolique cheville gauche (mmHg)", report.mi_pression_cheville_gauche);
   drawField("IPS gauche", report.mi_ips_gauche);
   if (report.mi_findings_text.trim().length > 0) {
     drawWrapped(report.mi_findings_text, 10);
   }
+  drawWrapped(MI_REFERENCE_NOTE, 8);
   y -= LINE_HEIGHT / 2;
 
   draw("CONCLUSION", 12, true);

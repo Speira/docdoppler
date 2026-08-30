@@ -86,7 +86,10 @@ function makeRiskFactors(overrides: Partial<RiskFactorsRow> = {}): RiskFactorsRo
 async function parsePdf(bytes: Uint8Array): Promise<{ text: string; numpages: number }> {
   const pdf = await getDocumentProxy(bytes);
   const { text, totalPages } = await extractText(pdf, { mergePages: true });
-  return { text, numpages: totalPages };
+  // Line wrapping can split a phrase across a "\n" purely based on where a
+  // line happened to break — collapse all whitespace so substring
+  // assertions test content, not incidental line width.
+  return { text: text.replace(/\s+/g, " "), numpages: totalPages };
 }
 
 describe("buildReportPdf", () => {
@@ -195,6 +198,67 @@ describe("buildReportPdf", () => {
     const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("échographe vasculaire");
+  });
+
+  it("nests a Bilan vasculaire subsection with the active risk factors under INDICATION", async () => {
+    const riskFactors = makeRiskFactors({ hypertension: 1, cholesterol: 1 });
+    const bytes = await buildReportPdf(makePatient(), riskFactors, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Bilan vasculaire");
+    expect(parsed.text).toContain("HTA");
+    expect(parsed.text).toContain("Dyslipidémie");
+  });
+
+  it("still shows 'no risk factors recorded' under Bilan vasculaire when there are none", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Bilan vasculaire");
+    expect(parsed.text).toContain("Aucun antécédent renseigné.");
+  });
+
+  it("splits TSA results into Droite and Gauche subsections", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({ tsa_imt_droit: 0.62, tsa_imt_gauche: 0.58 }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Droite");
+    expect(parsed.text).toContain("Gauche");
+  });
+
+  it("splits membres inférieurs results into Droite and Gauche subsections", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({ mi_ips_droit: 0.86, mi_ips_gauche: 0.93 }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Droite");
+    expect(parsed.text).toContain("Gauche");
+  });
+
+  it("prints the TSA reference criteria (VSM stenosis thresholds and vertebral flow)", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("sténose sévère");
+    expect(parsed.text).toContain("flux rétrograde pathologique");
+  });
+
+  it("prints the aorte abdominale reference criteria (diameter thresholds)", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("ectasie 25 à 29 mm");
+    expect(parsed.text).toContain("anévrisme > 30 mm");
+  });
+
+  it("prints the membres inférieurs reference criteria (spectre and IPS thresholds)", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("monophasique pathologique");
+    expect(parsed.text).toContain("médiacalcose");
   });
 });
 

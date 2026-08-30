@@ -58,6 +58,11 @@ behavior (its actual calling AE title, whether it honors
   add via Périph. (name) + Adresse IP + "Ajouter" button; "Ping" available to
   test reachability before adding
 
+## Next on-site test
+
+Step-by-step runbook (commands, order, what to configure on the Mindray):
+`docs/dicom-bridge-onsite-test-plan-2026-08-26.md`.
+
 ## Not yet confirmed / next on-site test
 
 - Purpose of "Param. service DICOM" and "Déf stratégie DICOM" buttons — likely

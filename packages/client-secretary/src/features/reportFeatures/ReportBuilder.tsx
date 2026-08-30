@@ -418,27 +418,6 @@ function ReportBuilderView({
         <Card>
           <CardHeader>
             <CardTitle className="text-primary">
-              {t(REPORT_FIELD_LABELS.indication)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form.Field name="indication">
-              {(field) => (
-                <Textarea
-                  id={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder={t('Motif de l’examen…')}
-                />
-              )}
-            </form.Field>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-primary">
               {t(REPORT_SECTION_LABELS.tsa)}
             </CardTitle>
           </CardHeader>
