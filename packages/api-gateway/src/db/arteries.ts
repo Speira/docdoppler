@@ -77,11 +77,14 @@ export function getArteriesForReports(
   const rows = db
     .prepare(`SELECT * FROM report_arteries WHERE report_id IN (${placeholders})`)
     .all(...reportIds) as ReportArteryRow[];
+  const byId = new Map<number, ReportArteryRow[]>();
+  for (const row of rows) {
+    const bucket = byId.get(row.report_id);
+    if (bucket) bucket.push(row);
+    else byId.set(row.report_id, [row]);
+  }
   for (const id of reportIds) {
-    grouped.set(
-      id,
-      group(rows.filter((row) => row.report_id === id)),
-    );
+    grouped.set(id, group(byId.get(id) ?? []));
   }
   return grouped;
 }
