@@ -71,6 +71,20 @@ CREATE TABLE IF NOT EXISTS reports (
 
 CREATE INDEX IF NOT EXISTS idx_reports_patient_id ON reports(patient_id);
 
+-- Per-artery MI findings, one row per (report, side, artery) actually
+-- examined — sparse by design, an artery not examined gets no row. See
+-- docs/report-module.md.
+CREATE TABLE IF NOT EXISTS report_arteries (
+  report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  side      TEXT NOT NULL CHECK (side IN ('droite','gauche')),
+  artery    TEXT NOT NULL CHECK (artery IN ('afc','afs','poplitee',
+                                 'tibiale_anterieure','tibiale_posterieure','fibulaire')),
+  vsm       REAL,
+  spectre   TEXT NOT NULL DEFAULT ''
+            CHECK (spectre IN ('','monophasique','diphasique','triphasique')),
+  PRIMARY KEY (report_id, side, artery)
+);
+
 -- Single-row clinic identity settings (letterhead, RPPS/Adeli, Mindray
 -- service info) — see docs/report-module.md "Clinic identity settings".
 -- id is pinned to 1 by the CHECK constraint so there is never more than
