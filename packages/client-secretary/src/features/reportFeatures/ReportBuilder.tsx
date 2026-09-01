@@ -8,11 +8,17 @@ import {
   RISK_FACTOR_LABELS,
   REPORT_SECTION_LABELS,
   REPORT_FIELD_LABELS,
+  MI_ARTERY_KEYS,
+  MI_ARTERY_LABELS,
+  MI_SIDES,
+  MI_SIDE_LABELS,
+  SPECTRE_OPTIONS,
 } from '@speira-docdoppler/shared-labels'
 
 import { ReportBuilderHelper } from './ReportBuilderHelper'
 import { computeIpsPreview, isPressureOutOfRange } from './ips'
 import { useReportBuilderForm } from './useReportBuilderForm'
+import { arterySpectreKey, arteryVsmKey } from './types'
 import type { ReportBuilderFormApi } from './useReportBuilderForm'
 import type { ReportBuilderFormValues } from './types'
 import { reportApiErrorMessage, reportService } from '#/services/report-service'
@@ -23,6 +29,13 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import { Textarea } from '#/components/ui/textarea'
 
 function fieldErrorMessage(errors: unknown[]): string {
@@ -138,6 +151,49 @@ function NumberField({
               {fieldErrorMessage(field.state.meta.errors)}
             </p>
           )}
+        </div>
+      )}
+    </form.Field>
+  )
+}
+
+// Radix Select throws on an empty SelectItem value, so "not examined" travels
+// as a sentinel and is converted back to '' at the form-state boundary.
+const SPECTRE_NONE = '__none__'
+
+function SpectreField({
+  form,
+  name,
+  label,
+}: {
+  form: ReportBuilderFormApi
+  name: keyof ReportBuilderFormValues
+  label: string
+}) {
+  const { t } = useTranslation()
+  return (
+    <form.Field name={name}>
+      {(field) => (
+        <div className="grid gap-2">
+          <Label htmlFor={field.name}>{t(label)}</Label>
+          <Select
+            value={field.state.value === '' ? SPECTRE_NONE : field.state.value}
+            onValueChange={(value) =>
+              field.handleChange(value === SPECTRE_NONE ? '' : value)
+            }
+          >
+            <SelectTrigger id={field.name}>
+              <SelectValue placeholder={t('Non examinée')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SPECTRE_NONE}>{t('Non examinée')}</SelectItem>
+              {SPECTRE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {t(option)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
     </form.Field>
@@ -503,6 +559,27 @@ function ReportBuilderView({
               />
             </div>
             <IpsPreview form={form} />
+            {MI_SIDES.map((side) => (
+              <div key={side} className="grid gap-3">
+                <h3 className="text-sm font-semibold">{t(MI_SIDE_LABELS[side])}</h3>
+                {MI_ARTERY_KEYS.map((artery) => (
+                  <div key={artery} className="grid gap-4 sm:grid-cols-2">
+                    <SpectreField
+                      form={form}
+                      name={arterySpectreKey(side, artery)}
+                      label={MI_ARTERY_LABELS[artery]}
+                    />
+                    {artery === 'afc' && (
+                      <NumberField
+                        form={form}
+                        name={arteryVsmKey(side)}
+                        label="VSM (cm/s)"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
             <TextAreaField
               form={form}
               name="mi_findings_text"

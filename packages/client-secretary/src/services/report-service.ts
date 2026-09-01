@@ -21,6 +21,7 @@ export interface MembresInferieursInput {
   pression_bras_droit?: number | null
   pression_bras_gauche?: number | null
   findings_text?: string
+  arteres?: Record<string, Record<string, { vsm?: number | null; spectre?: string }>>
 }
 
 export interface CreateReportInput {
@@ -57,6 +58,7 @@ export interface ReportRecord {
   mi_ips_droit: number | null
   mi_ips_gauche: number | null
   mi_findings_text: string
+  arteres: Record<string, Record<string, { vsm: number | null; spectre: string }>>
   conclusion: string
   created_at: string
 }

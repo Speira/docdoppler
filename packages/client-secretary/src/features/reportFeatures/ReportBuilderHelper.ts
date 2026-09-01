@@ -1,11 +1,32 @@
+import { MI_ARTERY_KEYS, MI_SIDES } from '@speira-docdoppler/shared-labels'
 import { patientService } from '#/services/patient-service'
 import { reportService } from '#/services/report-service'
 import { settingsService } from '#/services/settings-service'
 import { getReportBuilderDefaultValues } from './consts'
 import { parseOptionalNumber } from './ips'
+import { arterySpectreKey, arteryVsmKey } from './types'
 import type { PatientWithRiskFactors } from '#/services/patient-service'
 import type { ClinicSettingsRecord } from '#/services/settings-service'
 import type { ReportBuilderFormValues } from './types'
+
+// Flat form keys -> the nested `arteres` payload. Only arteries the doctor
+// actually filled in are sent; the API treats an absent artery as unexamined.
+export function arteresPayload(values: ReportBuilderFormValues) {
+  const arteres: Record<
+    string,
+    Record<string, { vsm: number | null; spectre: string }>
+  > = {}
+  for (const side of MI_SIDES) {
+    for (const artery of MI_ARTERY_KEYS) {
+      const spectre = values[arterySpectreKey(side, artery)]
+      const vsm =
+        artery === 'afc' ? parseOptionalNumber(values[arteryVsmKey(side)]) : null
+      if (spectre === '' && vsm === null) continue
+      ;(arteres[side] ??= {})[artery] = { vsm, spectre }
+    }
+  }
+  return arteres
+}
 
 export class ReportBuilderHelper {
   static async loadPatient(id: number): Promise<PatientWithRiskFactors> {
@@ -49,6 +70,7 @@ export class ReportBuilderHelper {
         pression_bras_droit: parseOptionalNumber(values.mi_pression_bras_droit),
         pression_bras_gauche: parseOptionalNumber(values.mi_pression_bras_gauche),
         findings_text: values.mi_findings_text,
+        arteres: arteresPayload(values),
       },
       conclusion: values.conclusion,
     })
