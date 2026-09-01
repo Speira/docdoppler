@@ -7,7 +7,7 @@ import { RouteError } from '#/components/route-error'
 import { i18next } from '#/lib/i18n'
 
 export const Route = createFileRoute('/patients/')({
-  validateSearch: (search: Record<string, unknown>): { reportFilter: ReportStatusFilter } => ({
+  validateSearch: (search: Record<string, unknown>): { reportFilter?: ReportStatusFilter } => ({
     reportFilter: PatientListHelper.parseReportFilter(search.reportFilter),
   }),
   loader: () => ({ patients: PatientListHelper.listPatientsWithReportStatus() }),
@@ -26,7 +26,7 @@ export const Route = createFileRoute('/patients/')({
 
 function RouteComponent() {
   const { patients } = Route.useLoaderData()
-  const { reportFilter } = Route.useSearch()
+  const { reportFilter = 'all' } = Route.useSearch()
   const navigate = useNavigate()
 
   return (
