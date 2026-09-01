@@ -1,4 +1,6 @@
 import { patientService } from '#/services/patient-service'
+import { reportService } from '#/services/report-service'
+import type { ReportRecord } from '#/services/report-service'
 import type { PatientFormValues } from './types'
 
 export class PatientEditHelper {
@@ -44,5 +46,9 @@ export class PatientEditHelper {
       smoking: values.smoking,
     })
     return patient.id
+  }
+
+  static listReports(id: number): Promise<ReportRecord[]> {
+    return reportService.listReports(id)
   }
 }

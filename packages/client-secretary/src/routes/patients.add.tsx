@@ -28,11 +28,15 @@ export const Route = createFileRoute('/patients/add')({
       deps.id === undefined
         ? undefined
         : PatientEditHelper.loadPatient(deps.id),
+    reports:
+      deps.id === undefined
+        ? undefined
+        : PatientEditHelper.listReports(deps.id),
   }),
   errorComponent: ({ error }) => <RouteError error={error} />,
   head: () => ({
     meta: [
-      { title: i18next.t('Secrétariat — DocDoppler') },
+      { title: i18next.t('Ajout de patient — DocDoppler') },
       {
         name: 'description',
         content: i18next.t(
@@ -46,7 +50,9 @@ export const Route = createFileRoute('/patients/add')({
 
 function Secretariat() {
   const { id } = Route.useSearch()
-  const { patient } = Route.useLoaderData()
-  if (id === undefined || !patient) return <PatientCreate />
-  return <PatientEdit key={id} id={id} patientPromise={patient} />
+  const { patient, reports } = Route.useLoaderData()
+  if (id === undefined || !patient || !reports) return <PatientCreate />
+  return (
+    <PatientEdit key={id} id={id} patientPromise={patient} reportsPromise={reports} />
+  )
 }

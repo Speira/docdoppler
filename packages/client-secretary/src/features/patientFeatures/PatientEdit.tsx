@@ -1,16 +1,20 @@
 import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, Eye, Save, Trash2 } from 'lucide-react'
 import { Suspense, use, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { PatientEditHelper } from './PatientEditHelper'
 import { PatientForm } from './PatientForm'
+import { PatientListHelper } from './PatientListHelper'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 import { usePatientForm } from './usePatientForm'
 import type { PatientFormValues } from './types'
 import { apiErrorMessage } from '#/services/patient-service'
+import { reportService } from '#/services/report-service'
+import type { ReportRecord } from '#/services/report-service'
 import { Button } from '#/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,13 +30,15 @@ import {
 export function PatientEdit({
   id,
   patientPromise,
+  reportsPromise,
 }: {
   id: number
   patientPromise: Promise<PatientFormValues>
+  reportsPromise: Promise<ReportRecord[]>
 }) {
   return (
     <Suspense fallback={<PatientEditSkeleton />}>
-      <PatientEditForm id={id} patientPromise={patientPromise} />
+      <PatientEditForm id={id} patientPromise={patientPromise} reportsPromise={reportsPromise} />
     </Suspense>
   )
 }
@@ -49,11 +55,14 @@ function PatientEditSkeleton() {
 function PatientEditForm({
   id,
   patientPromise,
+  reportsPromise,
 }: {
   id: number
   patientPromise: Promise<PatientFormValues>
+  reportsPromise: Promise<ReportRecord[]>
 }) {
   const loadedValues = use(patientPromise)
+  const reports = use(reportsPromise)
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [baseline, setBaseline] = useState(loadedValues)
@@ -104,7 +113,7 @@ function PatientEditForm({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="display-title text-3xl font-bold text-primary">
-            {t('Secrétariat')}
+            {t('Patient')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t('Dossier n° {{id}} — modifier la fiche patient.', { id })}
@@ -117,6 +126,8 @@ function PatientEditForm({
           </Button>
         </Link>
       </div>
+
+      <ReportHistoryCard reports={reports} />
 
       <form
         onSubmit={(e) => {
@@ -221,5 +232,37 @@ function PatientEditForm({
         confirmLabel={t('Quitter sans enregistrer')}
       />
     </div>
+  )
+}
+
+function ReportHistoryCard({ reports }: { reports: ReportRecord[] }) {
+  const { t } = useTranslation()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-primary">{t('Historique des rapports')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {reports.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t('Aucun rapport pour ce patient.')}
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {reports.map((report) => (
+              <li key={report.id} className="flex items-center justify-between py-2">
+                <span className="text-sm">{PatientListHelper.formatDate(report.exam_date)}</span>
+                <a href={reportService.reportPdfUrl(report.id)} target="_blank" rel="noreferrer">
+                  <Button size="sm" variant="outline">
+                    <Eye />
+                    {t('Voir le rapport')}
+                  </Button>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }
