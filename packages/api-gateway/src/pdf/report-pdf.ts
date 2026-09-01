@@ -502,7 +502,7 @@ export async function buildReportPdf(
           flux === null ? null : `Flux : ${flux}`,
         ].filter((part): part is string => part !== null);
         if (parts.length === 0) continue;
-        drawInlineBold(MI_ARTERY_LABELS[artery], parts.join(". "), INDENT_3);
+        drawInlineBold(`- ${MI_ARTERY_LABELS[artery]}`, parts.join(". "), INDENT_3);
       }
     }
     if (report.mi_findings_text.trim().length > 0) {

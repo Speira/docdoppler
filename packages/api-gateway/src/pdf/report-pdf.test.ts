@@ -463,7 +463,7 @@ describe("buildReportPdf", () => {
     );
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain(
-      "Artère fémorale commune (AFC) VSM : 90 cm/s. Spectre : triphasique. Flux : laminaire",
+      "- Artère fémorale commune (AFC) VSM : 90 cm/s. Spectre : triphasique. Flux : laminaire",
     );
   });
 
@@ -484,10 +484,10 @@ describe("buildReportPdf", () => {
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("- Droite : IPS : 0.86");
     expect(parsed.text).toContain(
-      "Artère fémorale superficielle (AFS) Spectre : monophasique. Flux : amortie",
+      "- Artère fémorale superficielle (AFS) Spectre : monophasique. Flux : amortie",
     );
     expect(parsed.text).toContain("- Gauche : IPS : 0.93");
-    expect(parsed.text).toContain("Artère poplitée Spectre : diphasique");
+    expect(parsed.text).toContain("- Artère poplitée Spectre : diphasique");
     expect(parsed.text.indexOf("- Droite")).toBeLessThan(parsed.text.indexOf("- Gauche"));
   });
 
@@ -520,7 +520,7 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("Artère fémorale commune (AFC) Spectre : triphasique");
+    expect(parsed.text).toContain("- Artère fémorale commune (AFC) Spectre : triphasique");
     expect(parsed.text).not.toContain("Artère fibulaire");
     expect(parsed.text).not.toContain("- Gauche");
   });
