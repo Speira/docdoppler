@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+import { patientService } from '#/services/patient-service'
+import { reportService } from '#/services/report-service'
+import { PatientListHelper } from './PatientListHelper'
+import type { PatientRecord } from '#/services/patient-service'
 
 vi.mock('#/services/patient-service', () => ({
   patientService: { listPatients: vi.fn() },
@@ -6,11 +10,6 @@ vi.mock('#/services/patient-service', () => ({
 vi.mock('#/services/report-service', () => ({
   reportService: { listReports: vi.fn() },
 }))
-
-import { patientService } from '#/services/patient-service'
-import { reportService } from '#/services/report-service'
-import { PatientListHelper } from './PatientListHelper'
-import type { PatientRecord } from '#/services/patient-service'
 
 function patient(id: number, overrides: Partial<PatientRecord> = {}): PatientRecord {
   return {
