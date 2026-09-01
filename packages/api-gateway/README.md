@@ -112,7 +112,14 @@ Body (`doctor_name` and `exam_date` required, everything else optional):
     "pression_cheville_gauche": 130,
     "pression_bras_droit": 130,
     "pression_bras_gauche": 140,
-    "findings_text": "Athéromatose diffuse…"
+    "findings_text": "Athéromatose diffuse…",
+    "arteres": {
+      "droite": {
+        "afc": { "vsm": 90, "spectre": "triphasique" },
+        "afs": { "spectre": "monophasique" }
+      },
+      "gauche": {}
+    }
   },
   "conclusion": "Athéromatose polyvasculaire."
 }
@@ -120,6 +127,18 @@ Body (`doctor_name` and `exam_date` required, everything else optional):
 
 Omitted top-level or nested fields default to `""` (text), `null` (numbers),
 or `false` (`aorte_abdominale.anevrisme`).
+
+`membres_inferieurs.arteres` is optional and structures per-artery findings:
+`{ [side]: { [artery]: { vsm, spectre } } }`, `side` one of `droite`/`gauche`,
+`artery` one of `afc`/`afs`/`poplitee`/`tibiale_anterieure`/
+`tibiale_posterieure`/`fibulaire` (see `docs/report-module.md`'s 2026-09-01
+"structured per-artery entry" revision). An omitted side, an omitted artery,
+or `spectre: ""` all mean "not examined" — sparse input in, sparse rows
+stored. `spectre` must be `""`, `monophasique`, `diphasique`, or
+`triphasique`; `vsm` must be a number or omitted. An unknown side/artery key,
+an invalid `spectre`, a non-numeric `vsm`, or an array anywhere in the shape
+→ `400 REPORT_FIELD_INVALID` (the existing code, no new one). Flux is never
+sent — it's derived server-side (PDF) from `spectre` via `fluxForSpectre`.
 
 `aorte_abdominale.anevrisme` and `anevrisme_diametre_mm` are **deprecated as of
 2026-09-01** and no longer sent by the report builder or rendered in the PDF —
@@ -132,7 +151,7 @@ it from the four `membres_inferieurs` pressures (ankle ÷ higher of the two
 brachial pressures, confirmed formula, see `docs/report-module.md`) and
 returns it in the response. It's `null` unless all four pressures are given.
 
-- `201` → the created report row: `{ id, patient_id, doctor_name, exam_date, correspondant_dossier, indication, tsa_imt_droit, tsa_imt_gauche, tsa_aci_acc_ratio_droit, tsa_aci_acc_ratio_gauche, tsa_findings_text, aorte_diametre, aorte_anevrisme, aorte_anevrisme_diametre_mm, aorte_findings_text, mi_pression_cheville_droite, mi_pression_cheville_gauche, mi_pression_bras_droit, mi_pression_bras_gauche, mi_ips_droit, mi_ips_gauche, mi_findings_text, conclusion, created_at }` (`aorte_anevrisme` comes back as `0`/`1`, matching SQLite storage)
+- `201` → the created report row: `{ id, patient_id, doctor_name, exam_date, correspondant_dossier, indication, tsa_imt_droit, tsa_imt_gauche, tsa_aci_acc_ratio_droit, tsa_aci_acc_ratio_gauche, tsa_findings_text, aorte_diametre, aorte_anevrisme, aorte_anevrisme_diametre_mm, aorte_findings_text, mi_pression_cheville_droite, mi_pression_cheville_gauche, mi_pression_bras_droit, mi_pression_bras_gauche, mi_ips_droit, mi_ips_gauche, mi_findings_text, arteres, conclusion, created_at }` (`aorte_anevrisme` comes back as `0`/`1`, matching SQLite storage; `arteres` is the same sparse `{ [side]: { [artery]: { vsm, spectre } } }` shape as the request, reflecting only the artery rows actually stored)
 - `404` → `PATIENT_NOT_FOUND`
 - `400` → `DOCTOR_NAME_REQUIRED` | `EXAM_DATE_REQUIRED` | `EXAM_DATE_INVALID` | `REPORT_FIELD_INVALID`
 
@@ -151,8 +170,12 @@ returns it in the response. It's `null` unless all four pressures are given.
   `mindray_service_date`; if both are unset it falls back to a generic
   sentence. RÉSULTATS **omits any region with no data entered** (header, fields
   and reference note); if all three are empty it prints "Aucun résultat
-  renseigné.". Multi-page reports repeat the patient identity at the top of
-  each continuation page and carry a `Page n/N` footer. Dates render dd/mm/yyyy.
+  renseigné.". Membres inférieurs prints each side's IPS followed by one
+  indented line per examined artery (name in bold, VSM/Spectre/derived Flux in
+  regular text) — see `docs/report-module.md`'s 2026-09-01 "structured
+  per-artery entry" revision; the four raw pressures no longer print. Multi-page
+  reports repeat the patient identity at the top of each continuation page and
+  carry a `Page n/N` footer. Dates render dd/mm/yyyy.
 - `404` → `REPORT_NOT_FOUND`
 
 The PDF embeds **Liberation Sans** from `assets/fonts/` (SIL OFL, committed —

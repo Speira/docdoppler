@@ -358,6 +358,93 @@ callback instead of `(font, size)`, which makes it unit-testable without a
 PDF document, and it breaks tokens longer than the line instead of letting
 them run off the page edge.
 
+## REVISION 2026-09-01 — structured per-artery entry (membres inférieurs)
+
+**This supersedes the 2026-08-31 "no new structured per-artery fields"
+deferral, for membres inférieurs (MI) only.** The doctor asked for structured
+per-artery entry for MI specifically; TSA (ACC/bulbe/ACI/vertébrales) is
+unaffected — it stays free-text (`tsa_findings_text`) and is explicitly out of
+scope here, per the 2026-08-31 note.
+
+- **Six arteries per side, fixed print order**: `afc` (Artère fémorale
+  commune), `afs` (Artère fémorale superficielle), `poplitee` (Artère
+  poplitée), `tibiale_anterieure` (Artère tibiale antérieure),
+  `tibiale_posterieure` (Artère tibiale postérieure), `fibulaire` (Artère
+  fibulaire). Sides print Droite then Gauche. All six keys, labels, and the
+  side list live in `packages/shared-labels/src/arteries.ts`
+  (`MI_ARTERY_KEYS`, `MI_ARTERY_LABELS`, `MI_SIDES`, `MI_SIDE_LABELS`).
+- **Each artery takes a Spectre** (`monophasique` | `diphasique` |
+  `triphasique`, or empty = not examined — `SPECTRE_OPTIONS`). **VSM (cm/s)
+  is entered on the AFC only** — the report builder form exposes a single VSM
+  field per side, wired to the `afc` row; nothing else in the six-artery list
+  has a VSM input.
+- **Flux is derived, never entered or stored.** There is no Flux input and no
+  Flux column. `fluxForSpectre(spectre)` in `shared-labels` is the single
+  source of the rule, called by both the PDF and (indirectly, for validation
+  parity) the form: `triphasique` → `laminaire`, `monophasique` → `amortie`,
+  `diphasique` → nothing printed. Confirmed with the doctor 2026-09-01 that
+  this applies uniformly to all six arteries, including the ones he writes as
+  "Spectre : (idem)".
+- **New child table `report_arteries`** (`report_id, side, artery, vsm,
+  spectre`, composite primary key, CHECK constraints on `side`/`artery`/
+  `spectre`, `ON DELETE CASCADE` on `report_id`), added directly in
+  `schema.sql` — see `packages/api-gateway/src/db/schema.sql`. **A child table
+  was chosen over 14 flat columns on `reports` specifically because it needed
+  no migration**: `schema.sql` is re-executed on every connection
+  (`CREATE TABLE IF NOT EXISTS`), so a brand-new table just appears, whereas
+  a schema change to the existing `reports` table would need real `ALTER
+  TABLE` migration code (none exists in this codebase yet).
+- **Rows are sparse**: an artery with neither a spectre nor a VSM gets no row
+  (`db/arteries.ts`'s `hasData`); a report with no MI arterial exam writes
+  zero artery rows. This mirrors the rest of the report's "only what was
+  entered gets stored/printed" convention.
+- `db/reports.ts`'s `createReport` now wraps the `reports` insert and the
+  artery inserts in one `better-sqlite3` `db.transaction` — all-or-nothing.
+  `getReport` and `listReportsByPatient` now return `ReportWithArteries`
+  (`ReportRow & { arteres: ArteriesBySide }`); `buildReportPdf`'s signature is
+  unchanged (it already took a report object).
+- **API**: `POST /patients/:id/reports`'s `membres_inferieurs` gains an
+  optional `arteres: { [side]: { [artery]: { vsm, spectre } } }`; the response
+  returns the same shape under `arteres`. An omitted side, an omitted artery,
+  or `spectre: ""` all mean "not examined". An unknown side key, an unknown
+  artery key, an invalid spectre value, a non-numeric `vsm`, or an array
+  anywhere in the shape all fail validation the same way as every other report
+  field — the existing `REPORT_FIELD_INVALID` (no new error code). See
+  `packages/api-gateway/src/validation/reports.ts`'s `validateArteries`.
+- **Form**: the MI card gains a Droite sub-block and a Gauche sub-block, six
+  artery rows each, in `ReportBuilder.tsx`. Form state stays **flat** (e.g.
+  `mi_droite_afc_spectre`, `mi_droite_afc_vsm`) to match the existing
+  `keyof`-based field helpers; the 14 keys (6 spectres per side + one VSM per
+  side), their defaults, and their zod rules are generated from
+  `MI_ARTERY_KEYS`/`MI_SIDES` rather than hand-written. A `SpectreField` Select
+  carries a `SPECTRE_NONE` sentinel for "Non examinée", because Radix's
+  `SelectItem` throws on an empty string value; the sentinel is converted back
+  to `''` at the form-state boundary. `arteresPayload` in
+  `ReportBuilderHelper.ts` maps the flat form keys to the nested API payload,
+  dropping any artery with neither a spectre nor a VSM.
+- **PDF, membres inférieurs section**: each side's row now leads with IPS
+  alone — `- Droite : IPS : 0.86` — followed by one indented line per examined
+  artery, at a new `INDENT_3`, artery name in **bold** with the rest of the
+  line (VSM/Spectre/Flux) in the regular font on the same line. This needed a
+  new primitive, `drawInlineBold(prefix, rest, indent)` in `report-pdf.ts`,
+  because pdf-lib draws one font per `drawText` call — it draws the bold
+  prefix, measures it with the bold font, then draws the remainder in the
+  regular font at that offset (wrapping the remainder, not the prefix, at the
+  right margin). VSM prints with its unit, `VSM : 90 cm/s`, and only appears
+  on whichever artery actually has a value (in practice, the AFC).
+- **All four systolic pressure lines stopped printing** — both brachial lines
+  (`Pression bras droit/gauche`) and the ankle line (`Pression cheville`) that
+  the 2026-09-01 layout-pass revision above still showed on each side row.
+  They remain as form inputs and DB columns, unchanged, because IPS is
+  computed from them (see the IPS section below); only the printed lines are
+  gone. A side with no IPS and no examined artery still prints no row at all,
+  and `miHasContent` (governing whether the whole MI section prints) now also
+  counts artery rows, not just IPS.
+- **`Constatations` (`mi_findings_text`) and the `Repères` note are
+  unchanged** — still one shared free-text field per report and the same
+  static `MI_REFERENCE_NOTE`, even though the note now partly restates the
+  structured fields (confirmed acceptable with the doctor 2026-09-01).
+
 ## IPS (Index de Pression Systolique / ABI) — formula confirmed 2026-08-21
 
 Doctor confirmed directly: "les deux chevilles et deux bras, [s]ystolique (pas

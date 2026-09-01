@@ -65,6 +65,11 @@
   **The PDF font is Liberation Sans, committed at `packages/api-gateway/assets/fonts/`** and
   embedded via `@pdf-lib/fontkit`; do not revert to pdf-lib's `StandardFonts`, which are
   CP1252-only and throw on `≥`/`≤`/`→` in the doctor's free text.
+  Membres inférieurs now also carries structured per-artery Spectre/VSM (six arteries, VSM on
+  AFC only) in a new `report_arteries` child table — no migration needed since `schema.sql`
+  re-runs on every connection — with Flux derived from Spectre via `fluxForSpectre` in
+  `shared-labels`. Supersedes the 2026-08-31 "no structured per-artery fields" deferral for MI
+  only; TSA stays free-text. See docs/report-module.md's 2026-09-01 revision.
 - DICOM Worklist bridge: see docs/dicom-worklist-bridge.md — the standalone SCP
   (`packages/dicom-bridge`) and its `GET /worklist` endpoint on `api-gateway` are
   implemented and tested, but DO NOT wire this into the main app (no "save
