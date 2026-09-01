@@ -15,10 +15,11 @@ architecture" below), the SCP calls `GET /worklist` on demand when it
 receives a C-FIND, reading current data each time. No push path exists or
 is planned — this is simpler and means there's nothing to keep in sync.
 
-Still true regardless of this implementation: C-ECHO and C-FIND have **not**
-been tested against the real Mindray unit, and "save patient" is **not**
-wired to this module. Everything under "Not yet confirmed" and "Explicitly
-out of scope" below still applies.
+**Update (2026-09-01):** C-ECHO and C-FIND (and exam start) are now
+confirmed working against the real Mindray unit — see "On-site validation"
+below. "Save patient" is still **not** wired to this module; that remains a
+separate, explicit decision per "Explicitly out of scope" below, unaffected
+by this validation.
 
 **Hardening pass (2026-08-24):** at the time, dcmtk/findscu wasn't available
 in the dev sandbox, so this pass focused on protocol-level correctness
@@ -63,16 +64,49 @@ behavior (its actual calling AE title, whether it honors
 Step-by-step runbook (commands, order, what to configure on the Mindray):
 `docs/dicom-bridge-onsite-test-plan-2026-08-26.md`.
 
-## Not yet confirmed / next on-site test
+## On-site validation (2026-09-01): C-ECHO, C-FIND, and exam start all confirmed
 
-- Purpose of "Param. service DICOM" and "Déf stratégie DICOM" buttons — likely
-  per-device service type assignment (Worklist vs Storage vs Print), unverified
-- Whether Mindray requires a specific AE Title configured for our SCP, or accepts
-  any registered device — unverified
-- C-ECHO (Verify) test — not yet run
-- Full C-FIND (worklist query) test — not yet run
+Full round trip succeeded against the real Mindray ME8: registered
+`DOCDOPPLER` as a device (IP/port of the bridge machine), C-ECHO verified,
+C-FIND (Patient → Worklist) returned a real test patient from SQLite, and
+"Démarrer exam" (start exam) succeeded on that worklist item.
+
+Two real issues were found and fixed this session:
+
+1. **Local firewall silently rejected the Mindray's connection.** The bridge
+   machine ran `firewalld` with `wlan0` in the `public` zone, which only
+   allows `tcp/22` inbound by default. Symptom: Ping succeeded (ICMP), but
+   both C-ECHO and a C-FIND attempt got `ICMP ... admin-prohibited` at the
+   TCP layer — confirmed via `tcpdump`, not visible in `iptables -L INPUT`
+   since `firewalld` manages its own `nftables` table. Not a bridge-code
+   issue; see `packages/dicom-bridge/README.md` for the fix
+   (`firewall-cmd --add-port`). This will need to be re-applied (or made
+   `--permanent`) on whatever machine ends up hosting the bridge
+   permanently.
+2. **Mindray rejected "Démarrer exam" with "IDU d'instance d'étude
+   incorrecte"** — it requires a `StudyInstanceUID` (0020,000D) in the
+   worklist response, which `mapping.py` didn't generate. Fixed: see
+   "Worklist query behavior" below.
+
+Confirmed:
+- Mindray's calling AE title for worklist queries is `mindray`, as assumed
+- The Worklist service entry has its own "Titre AE" field expecting the
+  bridge's AE title (`DOCDOPPLER`) — separate from the general device
+  registration
+- `BRIDGE_BIND_HOST` set to the bridge machine's real (DHCP) LAN IP works
+  correctly
+
+Still unconfirmed / open:
+- Purpose of "Param. service DICOM" and "Déf stratégie DICOM" buttons
+- The Worklist entry's "Défaut" (default) flag — could not be toggled
+  on-site; turned out not to matter for either issue found, but its actual
+  purpose is unknown
+- Whether Mindray actually enforces the called AE title
+  (`BRIDGE_REQUIRE_CALLED_AET` was left off/default and everything still
+  worked) or just displays it
 - Whether Mindray actually requires/checks `ScheduledStationAETitle` on
-  returned worklist items — unverified, currently defaulted to `mindray`
+  returned worklist items — still unverified either way, though nothing in
+  this session's testing contradicted the current default (`mindray`)
 
 ## Bridge architecture (target)
 
@@ -107,6 +141,13 @@ Step-by-step runbook (commands, order, what to configure on the Mindray):
     correctly
   - PatientName, PatientID, PatientBirthDate, PatientSex — from identity fields
   - AccessionNumber, RequestedProcedureID — from `accession_number`
+  - StudyInstanceUID — generated via `pydicom.uid.generate_uid()`, keyed off
+    `accession_number` as the entropy source so repeated C-FIND queries for
+    the same exam return the same UID (this bridge is pull-based and caches
+    nothing, so a purely random UID would differ on every query). Required
+    by the Mindray to accept "Démarrer exam" — confirmed on-site 2026-09-01,
+    it rejects exam start with "IDU d'instance d'étude incorrecte" without
+    this tag.
   - ScheduledStationAETitle — from `BRIDGE_STATION_AET`, defaults to the
     confirmed Mindray AE title `mindray`; **unverified** whether the Mindray
     actually requires this tag or checks its value — on-site test needed

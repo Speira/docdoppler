@@ -1,4 +1,5 @@
 from pydicom.dataset import Dataset
+from pydicom.uid import generate_uid
 
 from . import config
 
@@ -12,6 +13,12 @@ def patient_to_worklist_item(patient: dict) -> Dataset:
     dataset.PatientSex = patient["sex"]
     dataset.AccessionNumber = patient["accession_number"]
     dataset.RequestedProcedureID = patient["accession_number"]
+    # entropy_srcs keys the UID off the accession number so repeated queries
+    # for the same exam (this bridge is pull-based, nothing is cached) keep
+    # returning the same StudyInstanceUID rather than a new one per C-FIND.
+    dataset.StudyInstanceUID = generate_uid(
+        entropy_srcs=[patient["accession_number"]]
+    )
 
     step = Dataset()
     step.ScheduledStationAETitle = config.STATION_AET

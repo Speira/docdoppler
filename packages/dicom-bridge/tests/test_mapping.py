@@ -60,3 +60,21 @@ def test_maps_procedure_ids_from_accession_number():
     step = ds.ScheduledProcedureStepSequence[0]
     assert step.ScheduledProcedureStepID == "20260812-001"
     assert ds.RequestedProcedureID == "20260812-001"
+
+
+def test_study_instance_uid_is_valid_and_within_length_limit():
+    ds = patient_to_worklist_item(_patient())
+    assert ds.StudyInstanceUID.is_valid
+    assert len(ds.StudyInstanceUID) <= 64
+
+
+def test_study_instance_uid_is_stable_across_repeated_queries_for_same_exam():
+    ds1 = patient_to_worklist_item(_patient(accession_number="20260812-001"))
+    ds2 = patient_to_worklist_item(_patient(accession_number="20260812-001"))
+    assert ds1.StudyInstanceUID == ds2.StudyInstanceUID
+
+
+def test_study_instance_uid_differs_per_accession_number():
+    ds1 = patient_to_worklist_item(_patient(accession_number="20260812-001"))
+    ds2 = patient_to_worklist_item(_patient(accession_number="20260812-002"))
+    assert ds1.StudyInstanceUID != ds2.StudyInstanceUID

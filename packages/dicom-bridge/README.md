@@ -35,7 +35,7 @@ Requires `packages/api-gateway` running (`pnpm dev`, default `http://localhost:3
 BRIDGE_AE_TITLE=DOCDOPPLER BRIDGE_PORT=11112 .venv/bin/python -m dicom_bridge.run
 ```
 
-Environment variables (all optional, shown with their defaults):
+Environment variables (all optional, shown with their defaults set in ./dicom_bridge/config.py):
 
 - `BRIDGE_AE_TITLE` — AE title this SCP presents to callers (default `DOCDOPPLER`)
 - `BRIDGE_PORT` — port to listen on (default `11112`)
@@ -46,13 +46,24 @@ Environment variables (all optional, shown with their defaults):
 - `BRIDGE_STATION_AET` — value returned as `ScheduledStationAETitle` in worklist items, so the Mindray recognizes steps scheduled for it. Defaults to `mindray` (confirmed on-site AE title, see `docs/dicom-worklist-bridge.md`).
 
 `BRIDGE_BIND_HOST` and `BRIDGE_ALLOWED_CALLING_AETS` default to permissive
-because the correct values are unconfirmed against the real Mindray unit
-(see the checklist below) — this SCP serves patient identity data (name,
-DOB, sex) over C-FIND, so once the Mindray's actual calling AE title and
-network position are confirmed on-site, set both to lock it down before any
-real use. While `BRIDGE_ALLOWED_CALLING_AETS` is unset, `main()` prints a
+so this SCP serves patient identity data (name, DOB, sex) over C-FIND — set
+both explicitly before any real use (`BRIDGE_ALLOWED_CALLING_AETS=mindray`,
+`BRIDGE_BIND_HOST=<bridge machine's LAN IP>`, both confirmed on-site, see
+below). While `BRIDGE_ALLOWED_CALLING_AETS` is unset, `main()` prints a
 startup warning to make this state visible rather than silently discoverable
 only by reading code.
+
+**Local firewall:** if the bridge machine runs `firewalld` (or another
+default-deny firewall), inbound TCP on `BRIDGE_PORT` (default `11112`) must
+be explicitly allowed or the Mindray's association attempts get silently
+rejected (`ICMP ... admin-prohibited`) even though the bridge itself is
+listening and reachable via ping. Confirmed on-site 2026-09-01: `firewalld`
+was active with `wlan0` in the `public` zone, which only allowed `tcp/22` by
+default. Fix (runtime-only, re-apply after reboot or make `--permanent` once
+this is a settled deployment):
+```bash
+sudo firewall-cmd --zone=public --add-port=11112/tcp
+```
 
 ## Local loopback smoke test (done 2026-08-26)
 
@@ -83,11 +94,14 @@ This validates the SCP's own logic (C-ECHO handler, C-FIND → `GET /worklist`
 **not** anything Mindray-specific — the checklist below, which needs the
 real console, is still open.
 
-## On-site validation checklist (not yet done)
+## On-site validation (done 2026-09-01)
 
-- [ ] C-ECHO from the Mindray console succeeds against this SCP
-- [ ] C-FIND (Patient → Worklist) from the Mindray console returns a test patient
-- [ ] Confirm whether Mindray requires a specific AE title from this SCP, or accepts any registered device
-- [ ] Confirm purpose of "Param. service DICOM" / "Déf stratégie DICOM" buttons
-- [ ] Confirm the Mindray's calling AE title for worklist queries (docs say `mindray` for its own DICOM identity — verify this is what it presents as calling AE title on a C-FIND), then set `BRIDGE_ALLOWED_CALLING_AETS`
-- [ ] Set `BRIDGE_BIND_HOST` to the bridge machine's actual LAN IP
+- [x] C-ECHO from the Mindray console succeeds against this SCP
+- [x] C-FIND (Patient → Worklist) from the Mindray console returns a test patient
+- [x] "Démarrer exam" (start exam) succeeds on a worklist item pulled from this SCP — required adding `StudyInstanceUID` to the returned dataset (see "Worklist query behavior" in `docs/dicom-worklist-bridge.md`); Mindray rejected the exam start with "IDU d'instance d'étude incorrecte" until this was added
+- [x] Confirm whether Mindray requires a specific AE title from this SCP: yes — the Worklist service entry has its own "Titre AE" field (set to `DOCDOPPLER`, matching `BRIDGE_AE_TITLE`); `BRIDGE_REQUIRE_CALLED_AET` was left off (default) and this still worked, so it's unconfirmed whether the Mindray actually enforces this or just presents it
+- [x] Confirm the Mindray's calling AE title for worklist queries: `mindray`, matches the assumption — `BRIDGE_ALLOWED_CALLING_AETS=mindray` works as configured
+- [x] Set `BRIDGE_BIND_HOST` to the bridge machine's actual LAN IP — confirmed working with a real (DHCP-assigned) address, not just loopback
+- [ ] Purpose of "Param. service DICOM" / "Déf stratégie DICOM" buttons — still unconfirmed, not blocking
+- [ ] The Worklist entry's "Défaut" (default) flag could not be toggled during this session (grayed out/unclear why) — turned out to be irrelevant to the actual failures (both were the firewall, then the missing StudyInstanceUID), but the flag's real purpose is still unknown
+- [ ] Mindray system log export — attempted 2026-09-01, not found under Setup → DICOM/HL7 or the obvious System menus during this visit; may require a service/engineer-level login rather than the standard clinical user account. Not captured this session, not a blocker.
