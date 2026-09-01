@@ -27,6 +27,7 @@ describe("validateCreateReport", () => {
         mi_pression_bras_droit: null,
         mi_pression_bras_gauche: null,
         mi_findings_text: "",
+        mi_arteres: {},
         conclusion: "",
       },
     });

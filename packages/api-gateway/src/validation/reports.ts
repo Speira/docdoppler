@@ -67,6 +67,7 @@ export function validateCreateReport(
     mi_pression_bras_droit: optionalNumber(mi.pression_bras_droit),
     mi_pression_bras_gauche: optionalNumber(mi.pression_bras_gauche),
     mi_findings_text: optionalString(mi.findings_text),
+    mi_arteres: {},
     conclusion: optionalString(b.conclusion),
   };
 

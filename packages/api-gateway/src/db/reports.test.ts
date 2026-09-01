@@ -23,6 +23,7 @@ const MINIMAL_INPUT: CreateReportInput = {
   mi_pression_bras_droit: null,
   mi_pression_bras_gauche: null,
   mi_findings_text: "",
+  mi_arteres: {},
   conclusion: "",
 };
 
@@ -137,5 +138,32 @@ describe("reports data access", () => {
     });
     createReport(db, patientA.id, MINIMAL_INPUT);
     expect(listReportsByPatient(db, patientB.id)).toEqual([]);
+  });
+
+  it("stores arteries with the report and returns them on read", () => {
+    const db = createConnection(":memory:");
+    const patient = makePatient(db);
+    const report = createReport(db, patient.id, {
+      ...MINIMAL_INPUT,
+      mi_arteres: {
+        droite: { afc: { vsm: 90, spectre: "triphasique" } },
+        gauche: { afs: { vsm: null, spectre: "monophasique" } },
+      },
+    });
+    expect(report.arteres.droite?.afc).toEqual({ vsm: 90, spectre: "triphasique" });
+    expect(getReport(db, report.id)?.arteres.gauche?.afs?.spectre).toBe("monophasique");
+    expect(listReportsByPatient(db, patient.id)[0].arteres.droite?.afc?.vsm).toBe(90);
+  });
+
+  it("writes no report at all when an artery is invalid", () => {
+    const db = createConnection(":memory:");
+    const patient = makePatient(db);
+    expect(() =>
+      createReport(db, patient.id, {
+        ...MINIMAL_INPUT,
+        mi_arteres: { droite: { afc: { vsm: null, spectre: "bruit" } } },
+      }),
+    ).toThrow();
+    expect(listReportsByPatient(db, patient.id)).toHaveLength(0);
   });
 });
