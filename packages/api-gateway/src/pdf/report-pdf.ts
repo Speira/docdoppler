@@ -3,12 +3,17 @@ import { fileURLToPath } from "node:url";
 import { PDFDocument } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import {
+  MI_ARTERY_KEYS,
+  MI_ARTERY_LABELS,
+  MI_SIDES,
+  MI_SIDE_LABELS,
   REPORT_SECTION_LABELS,
   RISK_FACTOR_KEYS,
   RISK_FACTOR_LABELS,
+  fluxForSpectre,
 } from "@speira-docdoppler/shared-labels";
 import type { PatientRow, RiskFactorsRow } from "../db/patients.js";
-import type { ReportRow } from "../db/reports.js";
+import type { ReportRow, ReportWithArteries } from "../db/reports.js";
 import type { ClinicSettingsRow } from "../db/settings.js";
 
 const TSA_REFERENCE_NOTE =
@@ -33,6 +38,7 @@ const ADDRESS_COLUMN_WIDTH = 200;
 // level-2 (e.g. "Droite"/"Gauche" under TSA) indents twice as much.
 const INDENT_1 = 14;
 const INDENT_2 = 28;
+const INDENT_3 = 42;
 const FOOTER_SIZE = 8;
 const FOOTER_BASELINE = 30; // inside the bottom margin, below the content area
 const CONTINUATION_HEADER_SIZE = 8;
@@ -194,7 +200,7 @@ export function wrapText(
 export async function buildReportPdf(
   patient: PatientRow,
   riskFactors: RiskFactorsRow | undefined,
-  report: ReportRow,
+  report: ReportWithArteries,
   settings: ClinicSettingsRow,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -281,6 +287,37 @@ export async function buildReportPdf(
     const measured = parts.filter((part): part is string => part !== null);
     if (measured.length === 0) return;
     drawWrapped(`- ${side} : ${measured.join(". ")}`, 10, INDENT_2);
+  };
+
+  // pdf-lib draws one font per drawText call, so a line that is part bold and
+  // part regular has to be composed by hand: draw the bold prefix, measure it,
+  // then continue in the regular font at that offset.
+  const drawInlineBold = (prefix: string, rest: string, indent: number) => {
+    const size = 10;
+    const prefixWidth = boldFont.widthOfTextAtSize(`${prefix} `, size);
+    const restX = MARGIN + indent + prefixWidth;
+    const restWidth = PAGE_WIDTH - MARGIN - restX;
+    const measure = (line: string) => font.widthOfTextAtSize(line, size);
+    const [firstLine, ...moreLines] = wrapText(measure, restWidth, rest);
+
+    ensureSpace();
+    page.drawText(prefix, {
+      x: MARGIN + indent,
+      y: y - size,
+      size,
+      font: boldFont,
+    });
+    if (firstLine) {
+      page.drawText(firstLine, { x: restX, y: y - size, size, font });
+    }
+    y -= LINE_HEIGHT;
+
+    // Continuation lines align under the remainder, not under the bold name.
+    for (const line of moreLines) {
+      ensureSpace();
+      page.drawText(line, { x: restX, y: y - size, size, font });
+      y -= LINE_HEIGHT;
+    }
   };
 
   // Letterhead: doctor identity block on the left, clinic address on the
@@ -395,16 +432,17 @@ export async function buildReportPdf(
   // carrying only those would render an empty header plus a reference note.
   const aorteHasContent =
     hasValue(report.aorte_diametre) || report.aorte_findings_text.trim().length > 0;
-  const miHasSides =
-    hasValue(report.mi_pression_cheville_gauche) ||
-    hasValue(report.mi_pression_cheville_droite) ||
-    hasValue(report.mi_ips_gauche) ||
-    hasValue(report.mi_ips_droit);
+  const ipsBySide = {
+    droite: report.mi_ips_droit,
+    gauche: report.mi_ips_gauche,
+  } as const;
+
+  const sideHasContent = (side: (typeof MI_SIDES)[number]) =>
+    hasValue(ipsBySide[side]) ||
+    MI_ARTERY_KEYS.some((artery) => report.arteres[side]?.[artery] !== undefined);
+
   const miHasContent =
-    miHasSides ||
-    hasValue(report.mi_pression_bras_droit) ||
-    hasValue(report.mi_pression_bras_gauche) ||
-    report.mi_findings_text.trim().length > 0;
+    MI_SIDES.some(sideHasContent) || report.mi_findings_text.trim().length > 0;
 
   if (!tsaHasContent && !aorteHasContent && !miHasContent) {
     draw("Aucun résultat renseigné.", 10, false, INDENT_1);
@@ -451,25 +489,21 @@ export async function buildReportPdf(
 
   if (miHasContent) {
     draw(REPORT_SECTION_LABELS.membres_inferieurs, 11, true, INDENT_1);
-    drawField(
-      "Pression systolique bras droit (mmHg)",
-      report.mi_pression_bras_droit,
-      INDENT_1,
-    );
-    drawField(
-      "Pression systolique bras gauche (mmHg)",
-      report.mi_pression_bras_gauche,
-      INDENT_1,
-    );
-    if (miHasSides) {
-      drawSideRow("Droite", [
-        sidePart("Pression cheville", report.mi_pression_cheville_droite, " mmHg"),
-        sidePart("IPS", report.mi_ips_droit),
-      ]);
-      drawSideRow("Gauche", [
-        sidePart("Pression cheville", report.mi_pression_cheville_gauche, " mmHg"),
-        sidePart("IPS", report.mi_ips_gauche),
-      ]);
+    for (const side of MI_SIDES) {
+      if (!sideHasContent(side)) continue;
+      drawSideRow(MI_SIDE_LABELS[side], [sidePart("IPS", ipsBySide[side])]);
+      for (const artery of MI_ARTERY_KEYS) {
+        const entry = report.arteres[side]?.[artery];
+        if (!entry) continue;
+        const flux = fluxForSpectre(entry.spectre);
+        const parts = [
+          sidePart("VSM", entry.vsm, " cm/s"),
+          sidePart("Spectre", entry.spectre),
+          flux === null ? null : `Flux : ${flux}`,
+        ].filter((part): part is string => part !== null);
+        if (parts.length === 0) continue;
+        drawInlineBold(MI_ARTERY_LABELS[artery], parts.join(". "), INDENT_3);
+      }
     }
     if (report.mi_findings_text.trim().length > 0) {
       drawWrapped(report.mi_findings_text, 10, INDENT_1);

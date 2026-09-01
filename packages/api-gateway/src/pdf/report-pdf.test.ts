@@ -9,7 +9,7 @@ import {
   wrapText,
 } from "./report-pdf.js";
 import type { PatientRow, RiskFactorsRow } from "../db/patients.js";
-import type { ReportRow } from "../db/reports.js";
+import type { ReportWithArteries } from "../db/reports.js";
 import type { ClinicSettingsRow } from "../db/settings.js";
 
 function makeSettings(overrides: Partial<ClinicSettingsRow> = {}): ClinicSettingsRow {
@@ -42,7 +42,7 @@ function makePatient(overrides: Partial<PatientRow> = {}): PatientRow {
   };
 }
 
-function makeReport(overrides: Partial<ReportRow> = {}): ReportRow {
+function makeReport(overrides: Partial<ReportWithArteries> = {}): ReportWithArteries {
   return {
     id: 1,
     patient_id: 1,
@@ -66,6 +66,7 @@ function makeReport(overrides: Partial<ReportRow> = {}): ReportRow {
     mi_ips_droit: null,
     mi_ips_gauche: null,
     mi_findings_text: "",
+    arteres: {},
     conclusion: "",
     created_at: "2026-08-13 08:00:00",
     ...overrides,
@@ -279,8 +280,8 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("- Droite : Pression cheville : 120 mmHg. IPS : 0.86");
-    expect(parsed.text).toContain("- Gauche : Pression cheville : 130 mmHg. IPS : 0.93");
+    expect(parsed.text).toContain("- Droite : IPS : 0.86");
+    expect(parsed.text).toContain("- Gauche : IPS : 0.93");
   });
 
   it("omits a side that has no measurement of its own", async () => {
@@ -446,6 +447,97 @@ describe("buildReportPdf", () => {
     const parsed = await parsePdf(bytes);
     expect(parsed.numpages).toBe(1);
     expect(parsed.text).not.toContain("Page 1/1");
+  });
+
+  it("keeps a bold-prefixed line on one row and wraps its remainder", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        mi_ips_droit: 0.86,
+        arteres: {
+          droite: { afc: { vsm: 90, spectre: "triphasique" } },
+        },
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain(
+      "Artère fémorale commune (AFC) VSM : 90 cm/s. Spectre : triphasique. Flux : laminaire",
+    );
+  });
+
+  it("prints each side's IPS then its arteries, droite before gauche", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        mi_ips_droit: 0.86,
+        mi_ips_gauche: 0.93,
+        arteres: {
+          droite: { afs: { vsm: null, spectre: "monophasique" } },
+          gauche: { poplitee: { vsm: null, spectre: "diphasique" } },
+        },
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("- Droite : IPS : 0.86");
+    expect(parsed.text).toContain(
+      "Artère fémorale superficielle (AFS) Spectre : monophasique. Flux : amortie",
+    );
+    expect(parsed.text).toContain("- Gauche : IPS : 0.93");
+    expect(parsed.text).toContain("Artère poplitée Spectre : diphasique");
+    expect(parsed.text.indexOf("- Droite")).toBeLessThan(parsed.text.indexOf("- Gauche"));
+  });
+
+  it("no longer prints any systolic pressure line", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        mi_pression_bras_droit: 140,
+        mi_pression_bras_gauche: 135,
+        mi_pression_cheville_droite: 120,
+        mi_ips_droit: 0.86,
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).not.toContain("Pression systolique bras");
+    expect(parsed.text).not.toContain("Pression cheville");
+    expect(parsed.text).toContain("- Droite : IPS : 0.86");
+  });
+
+  it("omits an artery with no spectre and no vsm, and a side with nothing at all", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        mi_ips_droit: 0.86,
+        arteres: { droite: { afc: { vsm: null, spectre: "triphasique" } } },
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Artère fémorale commune (AFC) Spectre : triphasique");
+    expect(parsed.text).not.toContain("Artère fibulaire");
+    expect(parsed.text).not.toContain("- Gauche");
+  });
+
+  it("still prints the constatations and the MI reference note", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        mi_ips_droit: 0.86,
+        mi_findings_text: "Axe droit calcifié.",
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Axe droit calcifié.");
+    expect(parsed.text).toContain("médiacalcose");
   });
 });
 
