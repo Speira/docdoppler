@@ -155,6 +155,18 @@ machine + serial number + service date — none of this is per-report data.
 - This is a new small screen beyond CLAUDE.md's original two (secretary intake,
   doctor report builder) — update CLAUDE.md's "Screens" section when this is built
 
+## Patients/Reports list consolidation (2026-09-01)
+
+The standalone `/reports` patient list was merged into `/patients` — secretaries
+were mixing up the two nearly-identical list pages. `/patients` now carries a
+"Statut rapport" column, "Voir rapport"/"Nouveau rapport" row actions, and a
+report-status filter; `/reports` redirects to `/patients`, `/reports/$patientId`
+(the report builder) is unchanged. Only the latest report per patient is
+surfaced in the list — browsing older reports for a patient with multiple
+visits happens on the patient detail screen (`/patients/add?id=`), which now
+shows a read-only "Historique des rapports" list of every report for that
+patient, each linking to its PDF.
+
 ## Explicitly out of scope for this module
 
 - No MSSanté/Doctolib/patient portal integration — secretary handles distribution

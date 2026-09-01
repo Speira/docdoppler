@@ -23,8 +23,8 @@
 ## Screens
 
 0. Homepage (`/`, implemented 2026-08-24): landing page with cards linking to Patients/Rapports/Paramètres + light stats (patient count, patients with a report, settings configured); global `SiteHeader`/`SiteFooter` (app name "DocDoppler") wrap every route via `routes/__root.tsx`
-1. Secretary intake: patient identity + medical history form (`/patients/add`, create or edit via `?id=`) — patient list is `/patients`
-2. Doctor report builder: read patient + history, enter findings per exam region, generate PDF
+1. Secretary intake: patient identity + medical history form (`/patients/add`, create or edit via `?id=`) — patient list is `/patients`, merged 2026-09-01 with report status/actions (see below) and a `?reportFilter=all|with|without` filter; `/reports` redirects here. The detail screen also shows a "Historique des rapports" list of every report for that patient, each linking to its PDF.
+2. Doctor report builder: read patient + history, enter findings per exam region, generate PDF — reached from `/patients` row actions at `/reports/$patientId`; the list surfaces only the latest report per patient, older reports are on the patient detail screen's history list
 3. Clinic identity settings (`/settings`, implemented 2026-08-24): doctor/clinic letterhead + Mindray machine info, used as defaults in the report PDF — see docs/report-module.md
 
 ## Data model
