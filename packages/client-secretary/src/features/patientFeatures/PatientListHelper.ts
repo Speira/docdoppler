@@ -1,4 +1,5 @@
 import { patientService } from '#/services/patient-service'
+import { reportService } from '#/services/report-service'
 import type { PatientRecord } from '#/services/patient-service'
 import { formatDateFR } from '#/lib/date'
 
@@ -8,12 +9,26 @@ function foldAccents(value: string): string {
   return value.normalize('NFD').replace(COMBINING_DIACRITICS, '').toLowerCase()
 }
 
+export type PatientWithReportStatus = PatientRecord & { latestReportId: number | null }
+
+export type ReportStatusFilter = 'all' | 'with' | 'without'
+
 export class PatientListHelper {
-  static listPatients(): Promise<PatientRecord[]> {
-    return patientService.listPatients()
+  static async listPatientsWithReportStatus(): Promise<PatientWithReportStatus[]> {
+    const patients = await patientService.listPatients()
+    const results = await Promise.allSettled(
+      patients.map((patient) => reportService.listReports(patient.id)),
+    )
+    return patients.map((patient, index) => {
+      const result = results[index]
+      return {
+        ...patient,
+        latestReportId: result.status === 'fulfilled' ? result.value[0]?.id ?? null : null,
+      }
+    })
   }
 
-  static filterPatients(patients: PatientRecord[], query: string): PatientRecord[] {
+  static filterPatients<T extends PatientRecord>(patients: T[], query: string): T[] {
     const q = foldAccents(query.trim())
     if (!q) return patients
     return patients.filter(
@@ -22,6 +37,20 @@ export class PatientListHelper {
         foldAccents(p.last_name).includes(q) ||
         String(p.id).includes(q),
     )
+  }
+
+  static filterByReportStatus(
+    patients: PatientWithReportStatus[],
+    filter: ReportStatusFilter,
+  ): PatientWithReportStatus[] {
+    if (filter === 'all') return patients
+    return patients.filter((p) =>
+      filter === 'with' ? p.latestReportId !== null : p.latestReportId === null,
+    )
+  }
+
+  static parseReportFilter(value: unknown): ReportStatusFilter {
+    return value === 'with' || value === 'without' ? value : 'all'
   }
 
   static formatDate(isoDate: string): string {
