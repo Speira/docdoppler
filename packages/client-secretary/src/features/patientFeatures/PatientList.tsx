@@ -1,13 +1,29 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, UserPlus } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Eye,
+  FileText,
+  Pencil,
+  UserPlus,
+} from 'lucide-react'
 import { Suspense, use, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PatientListHelper } from './PatientListHelper'
-import type { PatientRecord } from '#/services/patient-service'
+import type { PatientWithReportStatus, ReportStatusFilter } from './PatientListHelper'
+import { reportService } from '#/services/report-service'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import {
   Table,
   TableBody,
@@ -19,12 +35,20 @@ import {
 
 export function PatientList({
   patientsPromise,
+  reportFilter,
+  onReportFilterChange,
 }: {
-  patientsPromise: Promise<PatientRecord[]>
+  patientsPromise: Promise<PatientWithReportStatus[]>
+  reportFilter: ReportStatusFilter
+  onReportFilterChange: (filter: ReportStatusFilter) => void
 }) {
   return (
     <Suspense fallback={<PatientListSkeleton />}>
-      <PatientListView patientsPromise={patientsPromise} />
+      <PatientListView
+        patientsPromise={patientsPromise}
+        reportFilter={reportFilter}
+        onReportFilterChange={onReportFilterChange}
+      />
     </Suspense>
   )
 }
@@ -58,18 +82,42 @@ function PatientListSkeleton() {
 }
 
 function formatSex(
-  sex: PatientRecord['sex'],
+  sex: PatientWithReportStatus['sex'],
   t: (key: string) => string,
 ): string {
   return sex === 'F' ? t('Féminin') : t('Masculin')
+}
+
+function ReportStatusBadge({
+  hasReport,
+  t,
+}: {
+  hasReport: boolean
+  t: (key: string) => string
+}) {
+  return (
+    <span
+      className={
+        hasReport
+          ? 'inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800'
+          : 'inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground'
+      }
+    >
+      {hasReport ? t('Rapport disponible') : t('Aucun rapport')}
+    </span>
+  )
 }
 
 type SortDirection = 'asc' | 'desc'
 
 function PatientListView({
   patientsPromise,
+  reportFilter,
+  onReportFilterChange,
 }: {
-  patientsPromise: Promise<PatientRecord[]>
+  patientsPromise: Promise<PatientWithReportStatus[]>
+  reportFilter: ReportStatusFilter
+  onReportFilterChange: (filter: ReportStatusFilter) => void
 }) {
   const patients = use(patientsPromise)
   const { t } = useTranslation()
@@ -77,9 +125,14 @@ function PatientListView({
   const [query, setQuery] = useState('')
   const [examDateSort, setExamDateSort] = useState<SortDirection | null>(null)
 
+  const byStatus = useMemo(
+    () => PatientListHelper.filterByReportStatus(patients, reportFilter),
+    [patients, reportFilter],
+  )
+
   const filtered = useMemo(
-    () => PatientListHelper.filterPatients(patients, query),
-    [patients, query],
+    () => PatientListHelper.filterPatients(byStatus, query),
+    [byStatus, query],
   )
 
   const sorted = useMemo(() => {
@@ -116,11 +169,29 @@ function PatientListView({
           <CardTitle className="text-primary">{t('Recherche')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            placeholder={t('Rechercher un patient…')}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <Input
+              className="sm:flex-1"
+              placeholder={t('Rechercher un patient…')}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <Select
+              value={reportFilter}
+              onValueChange={(value) =>
+                onReportFilterChange(PatientListHelper.parseReportFilter(value))
+              }
+            >
+              <SelectTrigger className="sm:w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('Tous les patients')}</SelectItem>
+                <SelectItem value="with">{t('Avec rapport')}</SelectItem>
+                <SelectItem value="without">{t('Sans rapport')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -150,6 +221,7 @@ function PatientListView({
                   </button>
                 </TableHead>
                 <TableHead>{t('Sexe')}</TableHead>
+                <TableHead>{t('Statut rapport')}</TableHead>
                 <TableHead className="text-right">{t('Actions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -157,7 +229,7 @@ function PatientListView({
               {sorted.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="text-center text-muted-foreground"
                   >
                     {t('Aucun patient trouvé.')}
@@ -200,17 +272,45 @@ function PatientListView({
                     {PatientListHelper.formatDate(p.exam_date)}
                   </TableCell>
                   <TableCell>{formatSex(p.sex, t)}</TableCell>
+                  <TableCell>
+                    <ReportStatusBadge hasReport={p.latestReportId !== null} t={t} />
+                  </TableCell>
                   <TableCell className="text-right">
-                    <Link
-                      to="/patients/add"
-                      search={{ id: p.id }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button size="sm" variant="outline">
-                        <Pencil />
-                        {t('Modifier')}
-                      </Button>
-                    </Link>
+                    <div className="flex justify-end gap-2">
+                      {p.latestReportId !== null && (
+                        <a
+                          href={reportService.reportPdfUrl(p.latestReportId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button size="sm" variant="outline">
+                            <Eye />
+                            {t('Voir rapport')}
+                          </Button>
+                        </a>
+                      )}
+                      <Link
+                        to="/reports/$patientId"
+                        params={{ patientId: String(p.id) }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button size="sm" variant="outline">
+                          <FileText />
+                          {t('Nouveau rapport')}
+                        </Button>
+                      </Link>
+                      <Link
+                        to="/patients/add"
+                        search={{ id: p.id }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button size="sm" variant="outline">
+                          <Pencil />
+                          {t('Modifier')}
+                        </Button>
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
