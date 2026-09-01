@@ -1,4 +1,7 @@
-import { PDFDocument, StandardFonts, type PDFFont } from "pdf-lib";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { PDFDocument } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import {
   REPORT_SECTION_LABELS,
   RISK_FACTOR_KEYS,
@@ -26,6 +29,35 @@ const PAGE_HEIGHT = 841.89;
 const MARGIN = 50;
 const LINE_HEIGHT = 16;
 const ADDRESS_COLUMN_WIDTH = 200;
+// Submenu indentation: level-1 (e.g. "Bilan vasculaire", "TSA") indents once,
+// level-2 (e.g. "Droite"/"Gauche" under TSA) indents twice as much.
+const INDENT_1 = 14;
+const INDENT_2 = 28;
+const FOOTER_SIZE = 8;
+const FOOTER_BASELINE = 30; // inside the bottom margin, below the content area
+const CONTINUATION_HEADER_SIZE = 8;
+
+// Liberation Sans is metrically compatible with Helvetica (so the column
+// widths above still hold) but, unlike pdf-lib's built-in StandardFonts, it is
+// embedded as a real Unicode font. The built-ins are WinAnsi/CP1252-only and
+// throw on characters a vascular report legitimately contains — "sténose
+// ≥ 70%", "IPS ≤ 0,90", "ACI → ACC" — which crashed PDF generation outright.
+// Bundled locally (SIL OFL, see assets/fonts/LICENSE.txt): no runtime download.
+const FONT_DIR = fileURLToPath(new URL("../../assets/fonts/", import.meta.url));
+
+let fontBytesPromise: Promise<{
+  regular: Uint8Array;
+  bold: Uint8Array;
+}> | null = null;
+
+function loadFontBytes(): Promise<{ regular: Uint8Array; bold: Uint8Array }> {
+  // Read the TTFs once per process, not once per report.
+  fontBytesPromise ??= Promise.all([
+    readFile(`${FONT_DIR}LiberationSans-Regular.ttf`),
+    readFile(`${FONT_DIR}LiberationSans-Bold.ttf`),
+  ]).then(([regular, bold]) => ({ regular, bold }));
+  return fontBytesPromise;
+}
 
 const dateFormatterFR = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit",
@@ -33,9 +65,16 @@ const dateFormatterFR = new Intl.DateTimeFormat("fr-FR", {
   year: "numeric",
 });
 
-function formatDateFR(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  return dateFormatterFR.format(new Date(year, month - 1, day));
+function formatDateFR(isoDate: string | null): string {
+  if (!isoDate) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  // Leave anything that isn't a plain ISO date untouched rather than risk
+  // rendering "Invalid Date" on a report.
+  if (!match) return isoDate;
+  const [, year, month, day] = match;
+  return dateFormatterFR.format(
+    new Date(Number(year), Number(month) - 1, Number(day)),
+  );
 }
 
 function sanitizeForFilename(value: string): string {
@@ -46,7 +85,10 @@ function sanitizeForFilename(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function buildReportPdfFilename(patient: PatientRow, report: ReportRow): string {
+export function buildReportPdfFilename(
+  patient: PatientRow,
+  report: ReportRow,
+): string {
   const lastName = sanitizeForFilename(patient.last_name).toUpperCase();
   const firstName = sanitizeForFilename(patient.first_name);
   return `Rapport_Echodoppler_${lastName}_${firstName}_${report.exam_date}_${report.id}.pdf`;
@@ -62,27 +104,86 @@ function buildTechniqueParagraph(settings: ClinicSettingsRow): string {
   }
   const machine = characteristics || "l'échographe vasculaire du cabinet";
   const servicePart = settings.mindray_service_date
-    ? `, mis en service le ${settings.mindray_service_date}`
+    ? `, mis en service le ${formatDateFR(settings.mindray_service_date)}`
     : "";
   return `Examen réalisé avec ${machine}${servicePart}.`;
 }
 
-function wrapText(font: PDFFont, size: number, maxWidth: number, text: string): string[] {
+const AORTE_BAND_OPTIONS = "Normal/Ectasie/Anévrisme";
+
+// The report builder's diameter input is numeric, so it sends a bare "22".
+// Legacy rows were free text and already carry their own unit ("22 mm",
+// "14 à 18 mm") — appending to those would print "22 mm mm".
+export function formatAorteDiametre(diametre: string): string {
+  const trimmed = diametre.trim();
+  return /^[\d.,\s]+$/.test(trimmed) ? `${trimmed} mm` : diametre;
+}
+
+// Bands from AORTE_REFERENCE_NOTE: normal < 25 mm, ectasie 25 to 29 mm,
+// anévrisme > 30 mm. The note leaves 29-30 open, so the boundary is closed at
+// the clinical convention (>= 30 = anévrisme).
+//
+// `aorte_diametre` is free text, so a value that isn't one measurement — a
+// range ("14 à 18 mm"), prose ("non visualisée"), empty — cannot be
+// classified: those fall back to printing the three options, unresolved.
+export function classifyAorteDiameter(diametre: string): string {
+  const numbers = diametre.match(/\d+(?:[.,]\d+)?/g);
+  if (numbers?.length !== 1) return AORTE_BAND_OPTIONS;
+  const mm = Number(numbers[0].replace(",", "."));
+  if (!Number.isFinite(mm)) return AORTE_BAND_OPTIONS;
+  if (mm < 25) return "Normal";
+  if (mm < 30) return "Ectasie";
+  return "Anévrisme";
+}
+
+type Measure = (text: string) => number;
+
+// Split a token that cannot fit on a line of its own (a long accession number,
+// a pasted URL) so it wraps instead of running off the page edge.
+function breakToken(
+  measure: Measure,
+  maxWidth: number,
+  token: string,
+): string[] {
+  const chunks: string[] = [];
+  let current = "";
+  for (const char of token) {
+    const candidate = current + char;
+    if (current && measure(candidate) > maxWidth) {
+      chunks.push(current);
+      current = char;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+export function wrapText(
+  measure: Measure,
+  maxWidth: number,
+  text: string,
+): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split("\n")) {
     if (paragraph.length === 0) {
       lines.push("");
       continue;
     }
-    const words = paragraph.split(" ");
     let current = "";
-    for (const word of words) {
+    for (const word of paragraph.split(" ")) {
       const candidate = current ? `${current} ${word}` : word;
-      if (current && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      if (current && measure(candidate) > maxWidth) {
         lines.push(current);
         current = word;
       } else {
         current = candidate;
+      }
+      if (measure(current) > maxWidth) {
+        const chunks = breakToken(measure, maxWidth, current);
+        lines.push(...chunks.slice(0, -1));
+        current = chunks[chunks.length - 1] ?? "";
       }
     }
     lines.push(current);
@@ -97,33 +198,89 @@ export async function buildReportPdf(
   settings: ClinicSettingsRow,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  doc.registerFontkit(fontkit);
+  const fontBytes = await loadFontBytes();
+  const font = await doc.embedFont(fontBytes.regular, { subset: true });
+  const boldFont = await doc.embedFont(fontBytes.bold, { subset: true });
   let page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
 
-  const ensureSpace = () => {
-    if (y < MARGIN + LINE_HEIGHT) {
-      page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-      y = PAGE_HEIGHT - MARGIN;
-    }
-  };
+  const patientIdentity = `${patient.last_name.toUpperCase()} ${patient.first_name}`;
+  // Repeated at the top of every continuation page: a loose second sheet has
+  // to be identifiable on its own.
+  const continuationHeader =
+    `${patientIdentity} — ${patient.sex === "F" ? "née" : "né"} le ${formatDateFR(patient.dob)}` +
+    ` — examen du ${formatDateFR(report.exam_date)}`;
 
-  const draw = (text: string, size: number, useBold = false) => {
-    ensureSpace();
-    page.drawText(text, { x: MARGIN, y: y - size, size, font: useBold ? boldFont : font });
+  const startContinuationPage = () => {
+    page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    y = PAGE_HEIGHT - MARGIN;
+    page.drawText(continuationHeader, {
+      x: MARGIN,
+      y: y - CONTINUATION_HEADER_SIZE,
+      size: CONTINUATION_HEADER_SIZE,
+      font,
+    });
+    y -= CONTINUATION_HEADER_SIZE + 6;
+    page.drawLine({
+      start: { x: MARGIN, y },
+      end: { x: PAGE_WIDTH - MARGIN, y },
+      thickness: 0.5,
+    });
     y -= LINE_HEIGHT;
   };
 
-  const drawWrapped = (text: string, size: number) => {
-    for (const line of wrapText(font, size, PAGE_WIDTH - MARGIN * 2, text)) {
-      draw(line, size);
+  const ensureSpace = () => {
+    if (y < MARGIN + LINE_HEIGHT) {
+      startContinuationPage();
     }
   };
 
-  const drawField = (label: string, value: string | number | null) => {
+  const draw = (text: string, size: number, useBold = false, indent = 0) => {
+    ensureSpace();
+    page.drawText(text, {
+      x: MARGIN + indent,
+      y: y - size,
+      size,
+      font: useBold ? boldFont : font,
+    });
+    y -= LINE_HEIGHT;
+  };
+
+  const drawWrapped = (text: string, size: number, indent = 0) => {
+    const measure = (line: string) => font.widthOfTextAtSize(line, size);
+    for (const line of wrapText(
+      measure,
+      PAGE_WIDTH - MARGIN * 2 - indent,
+      text,
+    )) {
+      draw(line, size, false, indent);
+    }
+  };
+
+  const drawField = (
+    label: string,
+    value: string | number | null,
+    indent = 0,
+  ) => {
     if (value === null || value === "") return;
-    draw(`${label} : ${value}`, 10);
+    draw(`${label} : ${value}`, 10, false, indent);
+  };
+
+  // A side's measurements read as one inline sentence-style row —
+  // "- Droite : IMT : 0.62 mm. Ratio ACI/ACC : 1.8" — rather than as a
+  // side-by-side column pair. A side with nothing measured prints nothing.
+  const sidePart = (
+    label: string,
+    value: string | number | null,
+    unit = "",
+  ): string | null =>
+    value === null || value === "" ? null : `${label} : ${value}${unit}`;
+
+  const drawSideRow = (side: string, parts: (string | null)[]) => {
+    const measured = parts.filter((part): part is string => part !== null);
+    if (measured.length === 0) return;
+    drawWrapped(`- ${side} : ${measured.join(". ")}`, 10, INDENT_2);
   };
 
   // Letterhead: doctor identity block on the left, clinic address on the
@@ -131,7 +288,12 @@ export async function buildReportPdf(
   // column cursors, reconciled back into the shared `y` afterwards.
   let leftY = y;
   const drawLeft = (text: string, size: number, useBold = false) => {
-    page.drawText(text, { x: MARGIN, y: leftY - size, size, font: useBold ? boldFont : font });
+    page.drawText(text, {
+      x: MARGIN,
+      y: leftY - size,
+      size,
+      font: useBold ? boldFont : font,
+    });
     leftY -= LINE_HEIGHT;
   };
 
@@ -153,12 +315,18 @@ export async function buildReportPdf(
   } else {
     drawLeft("Cabinet d'écho-Doppler vasculaire", 16, true);
   }
-  if (settings.professional_membership) drawLeft(settings.professional_membership, 9);
+  if (settings.professional_membership)
+    drawLeft(settings.professional_membership, 9);
   if (settings.rpps_number) drawLeft(`RPPS : ${settings.rpps_number}`, 9);
   if (settings.adeli_number) drawLeft(`N° Adeli : ${settings.adeli_number}`, 9);
 
   if (settings.address) {
-    for (const line of wrapText(font, 9, ADDRESS_COLUMN_WIDTH, settings.address)) {
+    const measure = (line: string) => font.widthOfTextAtSize(line, 9);
+    for (const line of wrapText(
+      measure,
+      ADDRESS_COLUMN_WIDTH,
+      settings.address,
+    )) {
       drawRight(line, 9);
     }
   }
@@ -171,31 +339,38 @@ export async function buildReportPdf(
   });
   y -= LINE_HEIGHT;
 
-  draw("Compte rendu", 13, true);
-  draw(`Date de l'examen : ${report.exam_date}`, 10);
+  draw("Identité du patient", 12, true);
+  draw(patientIdentity, 10);
+  draw(`Date de naissance : ${formatDateFR(patient.dob)}`, 10);
+  draw(`Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`, 10);
+  // The referring physician belongs with the patient's identity, not with the
+  // exam metadata. Still backed by `reports.correspondant_dossier`.
+  drawField("Médecin correspondant", report.correspondant_dossier || null);
+  y -= LINE_HEIGHT / 2;
+
+  draw(
+    "Compte rendu : Echodoppler des TSA, de la aorte abdominal, et des membres inférieurs et IPS",
+    11,
+    true,
+  );
+  draw(`Date de l'examen : ${formatDateFR(report.exam_date)}`, 10);
   draw(`Médecin : ${report.doctor_name}`, 10);
   y -= LINE_HEIGHT / 2;
 
-  draw("Identité du patient", 12, true);
-  draw(`${patient.last_name.toUpperCase()} ${patient.first_name}`, 10);
-  draw(`Date de naissance : ${formatDateFR(patient.dob)}`, 10);
-  draw(`Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`, 10);
-  y -= LINE_HEIGHT / 2;
-
   draw("INDICATION", 12, true);
-  drawField("Correspondant du dossier", report.correspondant_dossier || null);
   if (report.indication.trim().length > 0) {
     drawWrapped(report.indication, 10);
   }
-  draw("Bilan vasculaire", 11, true);
-  const activeRiskFactors = RISK_FACTOR_KEYS.filter((key) => riskFactors?.[key] === 1);
-  if (activeRiskFactors.length === 0) {
-    draw("Aucun antécédent renseigné.", 10);
-  } else {
-    for (const key of activeRiskFactors) {
-      draw(`- ${RISK_FACTOR_LABELS[key]}`, 10);
-    }
-  }
+  // Inline "label : a, b, c" rather than a bulleted column — the doctor reads
+  // this as one line of history, not as a checklist.
+  const activeRiskFactors = RISK_FACTOR_KEYS.filter(
+    (key) => riskFactors?.[key] === 1,
+  );
+  const riskFactorList =
+    activeRiskFactors.length === 0
+      ? "Aucun antécédent renseigné."
+      : activeRiskFactors.map((key) => RISK_FACTOR_LABELS[key]).join(", ");
+  drawWrapped(`Bilan vasculaire : ${riskFactorList}`, 10, INDENT_1);
   y -= LINE_HEIGHT / 2;
 
   draw("TECHNIQUE", 12, true);
@@ -204,45 +379,104 @@ export async function buildReportPdf(
 
   draw("RÉSULTATS", 12, true);
 
-  draw(REPORT_SECTION_LABELS.tsa, 11, true);
-  draw("Droite", 10, true);
-  drawField("IMT droit (mm)", report.tsa_imt_droit);
-  drawField("Ratio ACI/ACC droit", report.tsa_aci_acc_ratio_droit);
-  draw("Gauche", 10, true);
-  drawField("IMT gauche (mm)", report.tsa_imt_gauche);
-  drawField("Ratio ACI/ACC gauche", report.tsa_aci_acc_ratio_gauche);
-  if (report.tsa_findings_text.trim().length > 0) {
-    drawWrapped(report.tsa_findings_text, 10);
-  }
-  drawWrapped(TSA_REFERENCE_NOTE, 8);
-  y -= LINE_HEIGHT / 2;
+  // A region the doctor did not examine is omitted entirely — header, fields
+  // and its "Repères" boilerplate — so the report only carries what was done.
+  const hasValue = (value: string | number | null) =>
+    value !== null && value !== "";
+  const tsaHasSides =
+    hasValue(report.tsa_imt_gauche) ||
+    hasValue(report.tsa_imt_droit) ||
+    hasValue(report.tsa_aci_acc_ratio_gauche) ||
+    hasValue(report.tsa_aci_acc_ratio_droit);
+  const tsaHasContent =
+    tsaHasSides || report.tsa_findings_text.trim().length > 0;
+  // `aorte_anevrisme` / `aorte_anevrisme_diametre_mm` are retired: no longer
+  // printed, so they can't make a section worth showing either — a report
+  // carrying only those would render an empty header plus a reference note.
+  const aorteHasContent =
+    hasValue(report.aorte_diametre) || report.aorte_findings_text.trim().length > 0;
+  const miHasSides =
+    hasValue(report.mi_pression_cheville_gauche) ||
+    hasValue(report.mi_pression_cheville_droite) ||
+    hasValue(report.mi_ips_gauche) ||
+    hasValue(report.mi_ips_droit);
+  const miHasContent =
+    miHasSides ||
+    hasValue(report.mi_pression_bras_droit) ||
+    hasValue(report.mi_pression_bras_gauche) ||
+    report.mi_findings_text.trim().length > 0;
 
-  draw(REPORT_SECTION_LABELS.aorte_abdominale, 11, true);
-  drawField("Diamètre / calibre", report.aorte_diametre || null);
-  draw(`Anévrisme : ${report.aorte_anevrisme === 1 ? "Oui" : "Non"}`, 10);
-  if (report.aorte_anevrisme === 1) {
-    drawField("Diamètre de l'anévrisme (mm)", report.aorte_anevrisme_diametre_mm);
+  if (!tsaHasContent && !aorteHasContent && !miHasContent) {
+    draw("Aucun résultat renseigné.", 10, false, INDENT_1);
+    y -= LINE_HEIGHT / 2;
   }
-  if (report.aorte_findings_text.trim().length > 0) {
-    drawWrapped(report.aorte_findings_text, 10);
-  }
-  drawWrapped(AORTE_REFERENCE_NOTE, 8);
-  y -= LINE_HEIGHT / 2;
 
-  draw(REPORT_SECTION_LABELS.membres_inferieurs, 11, true);
-  drawField("Pression systolique bras droit (mmHg)", report.mi_pression_bras_droit);
-  drawField("Pression systolique bras gauche (mmHg)", report.mi_pression_bras_gauche);
-  draw("Droite", 10, true);
-  drawField("Pression systolique cheville droite (mmHg)", report.mi_pression_cheville_droite);
-  drawField("IPS droit", report.mi_ips_droit);
-  draw("Gauche", 10, true);
-  drawField("Pression systolique cheville gauche (mmHg)", report.mi_pression_cheville_gauche);
-  drawField("IPS gauche", report.mi_ips_gauche);
-  if (report.mi_findings_text.trim().length > 0) {
-    drawWrapped(report.mi_findings_text, 10);
+  if (tsaHasContent) {
+    draw(REPORT_SECTION_LABELS.tsa, 11, true, INDENT_1);
+    if (tsaHasSides) {
+      drawSideRow("Droite", [
+        sidePart("IMT", report.tsa_imt_droit, " mm"),
+        sidePart("Ratio ACI/ACC", report.tsa_aci_acc_ratio_droit),
+      ]);
+      drawSideRow("Gauche", [
+        sidePart("IMT", report.tsa_imt_gauche, " mm"),
+        sidePart("Ratio ACI/ACC", report.tsa_aci_acc_ratio_gauche),
+      ]);
+    }
+    if (report.tsa_findings_text.trim().length > 0) {
+      drawWrapped(report.tsa_findings_text, 10, INDENT_1);
+    }
+    drawWrapped(TSA_REFERENCE_NOTE, 8, INDENT_1);
+    y -= LINE_HEIGHT / 2;
   }
-  drawWrapped(MI_REFERENCE_NOTE, 8);
-  y -= LINE_HEIGHT / 2;
+
+  if (aorteHasContent) {
+    draw(REPORT_SECTION_LABELS.aorte_abdominale, 11, true, INDENT_1);
+    // The band is derived from the measurement itself, so the aorta reads as a
+    // single line: no "Anévrisme : Oui/Non" tick and no separate aneurysm
+    // diameter — when there is an aneurysm, this measurement *is* its diameter.
+    drawField(
+      "Diamètre antéro-postérieur",
+      report.aorte_diametre
+        ? `${formatAorteDiametre(report.aorte_diametre)} (${classifyAorteDiameter(report.aorte_diametre)})`
+        : null,
+      INDENT_1,
+    );
+    if (report.aorte_findings_text.trim().length > 0) {
+      drawWrapped(report.aorte_findings_text, 10, INDENT_1);
+    }
+    drawWrapped(AORTE_REFERENCE_NOTE, 8, INDENT_1);
+    y -= LINE_HEIGHT / 2;
+  }
+
+  if (miHasContent) {
+    draw(REPORT_SECTION_LABELS.membres_inferieurs, 11, true, INDENT_1);
+    drawField(
+      "Pression systolique bras droit (mmHg)",
+      report.mi_pression_bras_droit,
+      INDENT_1,
+    );
+    drawField(
+      "Pression systolique bras gauche (mmHg)",
+      report.mi_pression_bras_gauche,
+      INDENT_1,
+    );
+    if (miHasSides) {
+      drawSideRow("Droite", [
+        sidePart("Pression cheville", report.mi_pression_cheville_droite, " mmHg"),
+        sidePart("IPS", report.mi_ips_droit),
+      ]);
+      drawSideRow("Gauche", [
+        sidePart("Pression cheville", report.mi_pression_cheville_gauche, " mmHg"),
+        sidePart("IPS", report.mi_ips_gauche),
+      ]);
+    }
+    if (report.mi_findings_text.trim().length > 0) {
+      drawWrapped(report.mi_findings_text, 10, INDENT_1);
+    }
+    drawWrapped(MI_REFERENCE_NOTE, 8, INDENT_1);
+    y -= LINE_HEIGHT / 2;
+  }
 
   draw("CONCLUSION", 12, true);
   if (report.conclusion.trim().length > 0) {
@@ -250,6 +484,34 @@ export async function buildReportPdf(
   } else {
     draw("Non renseignée.", 10);
   }
+
+  // Page numbers can only be stamped once the total is known, so this is a
+  // second pass. A one-page report gets no "Page 1/1" noise.
+  const pages = doc.getPages();
+  if (pages.length > 1) {
+    pages.forEach((stampedPage, index) => {
+      const label = `Page ${index + 1}/${pages.length}`;
+      const width = font.widthOfTextAtSize(label, FOOTER_SIZE);
+      stampedPage.drawText(label, {
+        x: PAGE_WIDTH - MARGIN - width,
+        y: FOOTER_BASELINE,
+        size: FOOTER_SIZE,
+        font,
+      });
+    });
+  }
+
+  // Metadata: these files are archived on the clinic LAN, where the viewer tab
+  // and the file manager only ever show what is set here.
+  doc.setTitle(
+    `Compte rendu Écho-Doppler — ${patientIdentity} — ${formatDateFR(report.exam_date)}`,
+  );
+  doc.setAuthor(report.doctor_name);
+  doc.setSubject("Compte rendu d'examen Écho-Doppler vasculaire artériel");
+  doc.setCreator("DocDoppler");
+  doc.setProducer("DocDoppler");
+  doc.setCreationDate(new Date());
+  doc.setModificationDate(new Date());
 
   // useObjectStreams: false — pdf-lib defaults to compressed cross-reference
   // streams (PDF 1.5+), which pdf-parse's bundled pdf.js (v1.10.100, a much

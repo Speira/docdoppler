@@ -12,8 +12,6 @@ export interface TsaInput {
 
 export interface AorteAbdominaleInput {
   diametre?: string
-  anevrisme?: boolean
-  anevrisme_diametre_mm?: number | null
   findings_text?: string
 }
 

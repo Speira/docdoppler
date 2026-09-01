@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { extractText, getDocumentProxy } from "unpdf";
-import { buildReportPdf, buildReportPdfFilename } from "./report-pdf.js";
+import { PDFDocument } from "pdf-lib";
+import {
+  buildReportPdf,
+  buildReportPdfFilename,
+  classifyAorteDiameter,
+  formatAorteDiametre,
+  wrapText,
+} from "./report-pdf.js";
 import type { PatientRow, RiskFactorsRow } from "../db/patients.js";
 import type { ReportRow } from "../db/reports.js";
 import type { ClinicSettingsRow } from "../db/settings.js";
@@ -99,7 +106,7 @@ describe("buildReportPdf", () => {
     expect(parsed.numpages).toBe(1);
     expect(parsed.text).toContain("DUPONT Jean");
     expect(parsed.text).toContain("Dr. Martin");
-    expect(parsed.text).toContain("2026-08-13");
+    expect(parsed.text).toContain("13/08/2026");
   });
 
   it("includes only the active risk factors, by French label", async () => {
@@ -115,6 +122,33 @@ describe("buildReportPdf", () => {
     const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("Aucun antécédent renseigné.");
+  });
+
+  it("orders the sections: identity, compte rendu, indication, technique, résultats, conclusion", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    const sections = [
+      "Identité du patient",
+      "Compte rendu",
+      "INDICATION",
+      "TECHNIQUE",
+      "RÉSULTATS",
+      "CONCLUSION",
+    ];
+    const positions = sections.map((section) => parsed.text.indexOf(section));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
+  it("puts the médecin correspondant in the Identité du patient block", async () => {
+    const report = makeReport({ correspondant_dossier: "Dr Durand" });
+    const bytes = await buildReportPdf(makePatient(), undefined, report, makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Médecin correspondant : Dr Durand");
+    expect(parsed.text).not.toContain("Correspondant du dossier");
+    expect(parsed.text.indexOf("Médecin correspondant")).toBeLessThan(
+      parsed.text.indexOf("Compte rendu"),
+    );
   });
 
   it("includes the four top-level section headers", async () => {
@@ -133,8 +167,7 @@ describe("buildReportPdf", () => {
       makeReport({
         tsa_imt_droit: 0.62,
         tsa_findings_text: "Plaque athéromateuse significative",
-        aorte_anevrisme: 1,
-        aorte_anevrisme_diametre_mm: 34,
+        aorte_diametre: "34 mm",
         mi_pression_cheville_droite: 120,
         mi_pression_bras_droit: 130,
         mi_pression_bras_gauche: 140,
@@ -146,9 +179,8 @@ describe("buildReportPdf", () => {
     expect(parsed.text).toContain("Troncs supra-aortiques");
     expect(parsed.text).toContain("Plaque athéromateuse significative");
     expect(parsed.text).toContain("Aorte abdominale");
-    expect(parsed.text).toContain("34");
-    expect(parsed.text).toContain("IPS droit");
-    expect(parsed.text).toContain("0.86");
+    expect(parsed.text).toContain("Diamètre antéro-postérieur : 34 mm (Anévrisme)");
+    expect(parsed.text).toContain("IPS : 0.86");
   });
 
   it("includes the indication and conclusion free text", async () => {
@@ -191,7 +223,7 @@ describe("buildReportPdf", () => {
     const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), settings);
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("Mindray Resona 7, sonde linéaire L14-5");
-    expect(parsed.text).toContain("2020-03-01");
+    expect(parsed.text).toContain("mis en service le 01/03/2020");
   });
 
   it("falls back to a generic TECHNIQUE sentence when Mindray settings are unfilled", async () => {
@@ -200,65 +232,282 @@ describe("buildReportPdf", () => {
     expect(parsed.text).toContain("échographe vasculaire");
   });
 
-  it("nests a Bilan vasculaire subsection with the active risk factors under INDICATION", async () => {
-    const riskFactors = makeRiskFactors({ hypertension: 1, cholesterol: 1 });
+  it("lists the active risk factors inline after 'Bilan vasculaire :', not as bullets", async () => {
+    const riskFactors = makeRiskFactors({ diabetes: 1, hypertension: 1, smoking: 1 });
     const bytes = await buildReportPdf(makePatient(), riskFactors, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("Bilan vasculaire");
-    expect(parsed.text).toContain("HTA");
-    expect(parsed.text).toContain("Dyslipidémie");
+    expect(parsed.text).toContain("Bilan vasculaire : Diabète, HTA, Tabagisme");
+    expect(parsed.text).not.toContain("- HTA");
   });
 
   it("still shows 'no risk factors recorded' under Bilan vasculaire when there are none", async () => {
     const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("Bilan vasculaire");
-    expect(parsed.text).toContain("Aucun antécédent renseigné.");
+    expect(parsed.text).toContain("Bilan vasculaire : Aucun antécédent renseigné.");
   });
 
-  it("splits TSA results into Droite and Gauche subsections", async () => {
+  it("lists each TSA side inline on its own row, Droite before Gauche", async () => {
     const bytes = await buildReportPdf(
       makePatient(),
       undefined,
-      makeReport({ tsa_imt_droit: 0.62, tsa_imt_gauche: 0.58 }),
+      makeReport({
+        tsa_imt_droit: 0.62,
+        tsa_imt_gauche: 0.58,
+        tsa_aci_acc_ratio_droit: 1.8,
+        tsa_aci_acc_ratio_gauche: 1.2,
+      }),
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("Droite");
-    expect(parsed.text).toContain("Gauche");
+    expect(parsed.text).toContain("- Droite : IMT : 0.62 mm. Ratio ACI/ACC : 1.8");
+    expect(parsed.text).toContain("- Gauche : IMT : 0.58 mm. Ratio ACI/ACC : 1.2");
+    expect(parsed.text.indexOf("- Droite")).toBeLessThan(parsed.text.indexOf("- Gauche"));
+    // The side-by-side column header is gone.
+    expect(parsed.text).not.toContain("Gauche Droite");
   });
 
-  it("splits membres inférieurs results into Droite and Gauche subsections", async () => {
+  it("lists each membres inférieurs side inline on its own row", async () => {
     const bytes = await buildReportPdf(
       makePatient(),
       undefined,
-      makeReport({ mi_ips_droit: 0.86, mi_ips_gauche: 0.93 }),
+      makeReport({
+        mi_ips_droit: 0.86,
+        mi_ips_gauche: 0.93,
+        mi_pression_cheville_droite: 120,
+        mi_pression_cheville_gauche: 130,
+      }),
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("Droite");
-    expect(parsed.text).toContain("Gauche");
+    expect(parsed.text).toContain("- Droite : Pression cheville : 120 mmHg. IPS : 0.86");
+    expect(parsed.text).toContain("- Gauche : Pression cheville : 130 mmHg. IPS : 0.93");
+  });
+
+  it("omits a side that has no measurement of its own", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({ tsa_imt_droit: 0.62 }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("- Droite : IMT : 0.62 mm");
+    expect(parsed.text).not.toContain("- Gauche");
   });
 
   it("prints the TSA reference criteria (VSM stenosis thresholds and vertebral flow)", async () => {
-    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const report = makeReport({ tsa_imt_droit: 0.62 });
+    const bytes = await buildReportPdf(makePatient(), undefined, report, makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("sténose sévère");
     expect(parsed.text).toContain("flux rétrograde pathologique");
   });
 
+  it("renders the aorte diameter as 'Diamètre antéro-postérieur' with its resolved band", async () => {
+    const report = makeReport({ aorte_diametre: "22" });
+    const bytes = await buildReportPdf(makePatient(), undefined, report, makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Diamètre antéro-postérieur : 22 mm (Normal)");
+    expect(parsed.text).not.toContain("Diamètre / calibre");
+  });
+
+  it("does not double the unit on a legacy diameter that already has one", async () => {
+    const report = makeReport({ aorte_diametre: "22 mm" });
+    const bytes = await buildReportPdf(makePatient(), undefined, report, makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Diamètre antéro-postérieur : 22 mm (Normal)");
+    expect(parsed.text).not.toContain("mm mm");
+  });
+
+  it("prints no aneurysm line at all — the derived band is the only verdict", async () => {
+    const aneurysm = makeReport({
+      aorte_diametre: "34 mm",
+      aorte_anevrisme: 1,
+      aorte_anevrisme_diametre_mm: 34,
+    });
+    const parsedAneurysm = await parsePdf(
+      await buildReportPdf(makePatient(), undefined, aneurysm, makeSettings()),
+    );
+    expect(parsedAneurysm.text).toContain("Diamètre antéro-postérieur : 34 mm (Anévrisme)");
+    expect(parsedAneurysm.text).not.toContain("Anévrisme : Oui");
+    expect(parsedAneurysm.text).not.toContain("Diamètre de l'anévrisme");
+
+    const normal = makeReport({ aorte_diametre: "22 mm" });
+    const parsedNormal = await parsePdf(
+      await buildReportPdf(makePatient(), undefined, normal, makeSettings()),
+    );
+    expect(parsedNormal.text).not.toContain("Anévrisme : Non");
+  });
+
   it("prints the aorte abdominale reference criteria (diameter thresholds)", async () => {
-    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const report = makeReport({ aorte_diametre: "22 mm" });
+    const bytes = await buildReportPdf(makePatient(), undefined, report, makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("ectasie 25 à 29 mm");
     expect(parsed.text).toContain("anévrisme > 30 mm");
   });
 
   it("prints the membres inférieurs reference criteria (spectre and IPS thresholds)", async () => {
-    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const report = makeReport({ mi_ips_droit: 1.02 });
+    const bytes = await buildReportPdf(makePatient(), undefined, report, makeSettings());
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("monophasique pathologique");
     expect(parsed.text).toContain("médiacalcose");
+  });
+
+  it("renders symbols outside CP1252 (≥, ≤, →) that Helvetica cannot encode", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        tsa_findings_text: "Sténose ACI droite ≥ 70%.",
+        conclusion: "IPS ≤ 0,90 → AOMI confirmée.",
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("≥ 70%");
+    expect(parsed.text).toContain("≤ 0,90 → AOMI confirmée.");
+  });
+
+  it("formats the exam date as dd/mm/yyyy, like the date of birth", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Date de l'examen : 13/08/2026");
+    expect(parsed.text).not.toContain("2026-08-13");
+  });
+
+  it("omits the Gauche/Droite column headers when a section has no per-side values", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({ tsa_findings_text: "Axes carotidiens perméables." }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Axes carotidiens perméables.");
+    expect(parsed.text).not.toContain("Gauche");
+    expect(parsed.text).not.toContain("Droite");
+  });
+
+  it("omits result sections that have no data, including their reference criteria", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({ tsa_imt_droit: 0.62 }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("Troncs supra-aortiques");
+    expect(parsed.text).not.toContain("Aorte abdominale");
+    expect(parsed.text).not.toContain("ectasie 25 à 29 mm");
+    expect(parsed.text).not.toContain("Artères des membres inférieurs");
+    expect(parsed.text).not.toContain("médiacalcose");
+  });
+
+  it("says no results were recorded when every result section is empty", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("RÉSULTATS");
+    expect(parsed.text).toContain("Aucun résultat renseigné.");
+  });
+
+  it("sets PDF metadata so archived files are identifiable outside the app", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getTitle()).toContain("DUPONT Jean");
+    expect(doc.getTitle()).toContain("13/08/2026");
+    expect(doc.getAuthor()).toBe("Dr. Martin");
+    expect(doc.getSubject()).toContain("Écho-Doppler");
+  });
+
+  it("repeats the patient identity and paginates when the report spills onto a second page", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        tsa_imt_droit: 0.62,
+        tsa_findings_text: "Plaque athéromateuse du bulbe carotidien droit. ".repeat(30),
+        conclusion: "Athéromatose polyvasculaire à surveiller. ".repeat(30),
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.numpages).toBeGreaterThan(1);
+    expect(parsed.text).toContain(`Page 1/${parsed.numpages}`);
+    expect(parsed.text).toContain(`Page ${parsed.numpages}/${parsed.numpages}`);
+    // Identity appears in the letterhead block and again on each continuation page.
+    const identityCount = parsed.text.split("DUPONT Jean").length - 1;
+    expect(identityCount).toBeGreaterThanOrEqual(parsed.numpages);
+  });
+
+  it("does not stamp a page number on a single-page report", async () => {
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
+    const parsed = await parsePdf(bytes);
+    expect(parsed.numpages).toBe(1);
+    expect(parsed.text).not.toContain("Page 1/1");
+  });
+});
+
+describe("formatAorteDiametre", () => {
+  it("appends mm to a bare number, as the form's numeric input now sends", () => {
+    expect(formatAorteDiametre("22")).toBe("22 mm");
+    expect(formatAorteDiametre("24,5")).toBe("24,5 mm");
+  });
+
+  it("leaves a legacy value that already carries its own unit", () => {
+    expect(formatAorteDiametre("22 mm")).toBe("22 mm");
+    expect(formatAorteDiametre("14 à 18 mm")).toBe("14 à 18 mm");
+    expect(formatAorteDiametre("non visualisée")).toBe("non visualisée");
+  });
+});
+
+describe("classifyAorteDiameter", () => {
+  it("classifies under 25 mm as normal", () => {
+    expect(classifyAorteDiameter("22 mm")).toBe("Normal");
+    expect(classifyAorteDiameter("24,9 mm")).toBe("Normal");
+  });
+
+  it("classifies 25 mm up to under 30 mm as ectasie", () => {
+    expect(classifyAorteDiameter("25 mm")).toBe("Ectasie");
+    expect(classifyAorteDiameter("29 mm")).toBe("Ectasie");
+  });
+
+  it("classifies 30 mm and above as anévrisme", () => {
+    expect(classifyAorteDiameter("30 mm")).toBe("Anévrisme");
+    expect(classifyAorteDiameter("34 mm")).toBe("Anévrisme");
+  });
+
+  it("reads a value with no unit and one written with a French decimal comma", () => {
+    expect(classifyAorteDiameter("27")).toBe("Ectasie");
+    expect(classifyAorteDiameter("32,5 mm")).toBe("Anévrisme");
+  });
+
+  it("falls back to the option list when the value is not one measurement", () => {
+    const options = "Normal/Ectasie/Anévrisme";
+    expect(classifyAorteDiameter("14 à 18 mm")).toBe(options);
+    expect(classifyAorteDiameter("non visualisée")).toBe(options);
+    expect(classifyAorteDiameter("")).toBe(options);
+  });
+});
+
+describe("wrapText", () => {
+  // 10pt per character keeps the arithmetic obvious: a 100pt line fits 10 chars.
+  const measure = (text: string) => text.length * 10;
+
+  it("wraps on word boundaries", () => {
+    expect(wrapText(measure, 100, "aaa bbb ccc ddd")).toEqual(["aaa bbb", "ccc ddd"]);
+  });
+
+  it("preserves explicit line breaks", () => {
+    expect(wrapText(measure, 100, "aaa\nbbb")).toEqual(["aaa", "bbb"]);
+  });
+
+  it("breaks a single token too long for the line instead of overflowing it", () => {
+    const token = "A".repeat(25);
+    const lines = wrapText(measure, 100, token);
+    expect(lines.every((line) => measure(line) <= 100)).toBe(true);
+    expect(lines.join("")).toBe(token);
   });
 });
 

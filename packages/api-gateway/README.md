@@ -105,8 +105,6 @@ Body (`doctor_name` and `exam_date` required, everything else optional):
   },
   "aorte_abdominale": {
     "diametre": "14 à 18 mm",
-    "anevrisme": true,
-    "anevrisme_diametre_mm": 34,
     "findings_text": "Anévrisme fusiforme sous-rénal…"
   },
   "membres_inferieurs": {
@@ -122,6 +120,12 @@ Body (`doctor_name` and `exam_date` required, everything else optional):
 
 Omitted top-level or nested fields default to `""` (text), `null` (numbers),
 or `false` (`aorte_abdominale.anevrisme`).
+
+`aorte_abdominale.anevrisme` and `anevrisme_diametre_mm` are **deprecated as of
+2026-09-01** and no longer sent by the report builder or rendered in the PDF —
+the aorta's Normal/Ectasie/Anévrisme band is derived from `diametre` instead
+(see `docs/report-module.md`). They are still accepted and still stored, so the
+columns keep whatever past reports recorded; do not send them in new clients.
 
 IPS (`mi_ips_droit`/`mi_ips_gauche`) is **not** an input — the server computes
 it from the four `membres_inferieurs` pressures (ankle ÷ higher of the two
@@ -145,8 +149,17 @@ returns it in the response. It's `null` unless all four pressures are given.
   Aorte abdominale / Membres inférieurs) → CONCLUSION, plus patient identity
   and risk factors. TECHNIQUE is built from `mindray_characteristics` +
   `mindray_service_date`; if both are unset it falls back to a generic
-  sentence.
+  sentence. RÉSULTATS **omits any region with no data entered** (header, fields
+  and reference note); if all three are empty it prints "Aucun résultat
+  renseigné.". Multi-page reports repeat the patient identity at the top of
+  each continuation page and carry a `Page n/N` footer. Dates render dd/mm/yyyy.
 - `404` → `REPORT_NOT_FOUND`
+
+The PDF embeds **Liberation Sans** from `assets/fonts/` (SIL OFL, committed —
+no runtime download) rather than a pdf-lib built-in font: the built-ins are
+CP1252-only and throw on `≥`, `≤`, `→`, which the doctor's free text contains.
+Don't swap it back to `StandardFonts`. See `docs/report-module.md`'s
+2026-09-01 revision.
 
 ## Settings
 

@@ -236,6 +236,128 @@ per patient) and drop the fan-out.
   wanted the reference thresholds printed. Revisit only if he asks for
   structured entry per artery segment.
 
+## REVISION 2026-09-01 — PDF layout pass + Unicode font
+
+Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
+
+- **Section order is now**: letterhead → **Identité du patient** → **Compte
+  rendu** → INDICATION → TECHNIQUE → RÉSULTATS → CONCLUSION. The identity block
+  leads the document; "Compte rendu" (its long descriptive title line, plus
+  `Date de l'examen` and `Médecin`) follows it.
+- **`Correspondant du dossier` moved and relabelled.** It left INDICATION and
+  now renders as **`Médecin correspondant : …`**, the last line of the
+  **Identité du patient** block — the referring physician reads as part of the
+  patient's identity, not as exam metadata. Still backed by the existing
+  `reports.correspondant_dossier` column: label and placement changed, schema
+  and API did not.
+- **Indentation now encodes nesting.** `INDENT_1` (14pt) for level-1 subsections
+  (TSA, Aorte abdominale, Membres inférieurs) and their fields; `INDENT_2`
+  (28pt) for the level-2 "Gauche"/"Droite" block. Top-level headers
+  (INDICATION/TECHNIQUE/RÉSULTATS/CONCLUSION) stay at the margin.
+- **Risk factors are inline, not a bulleted column.** "Bilan vasculaire" is no
+  longer a bold subsection header followed by one bullet per factor; it is a
+  single wrapped line at `INDENT_1` — `Bilan vasculaire : Diabète, HTA,
+  Dyslipidémie, …` (or `: Aucun antécédent renseigné.`), matching the
+  "label : value" style of the other fields. This supersedes the nested
+  subsection described in the 2026-08-31 revision. Order comes from
+  `RISK_FACTOR_KEYS`; all eight labels still fit on one line.
+- **Droite/Gauche render as an inline list**, one row per side at `INDENT_2`,
+  Droite first:
+  `- Droite : IMT : 0.62 mm. Ratio ACI/ACC : 1.8`. Built by `drawSideRow` +
+  `sidePart` — parts are joined with ". ", a part with no value is dropped, and
+  a side with no measurement at all prints no row. This supersedes both the
+  stacked bold "Droite"/"Gauche" sub-headers of the 2026-08-31 revision and the
+  side-by-side two-column layout that briefly replaced them (`drawTwoColumn` /
+  `COLUMN_WIDTH` are gone). Because the row states the side, the field labels
+  carry no side suffix and the unit moves onto the value: "IMT droit (mm)" →
+  `IMT : 0.62 mm`, "Pression systolique cheville (mmHg)" →
+  `Pression cheville : 120 mmHg`.
+- **Aorte diameter line relabelled and now self-classifying**:
+  "Diamètre / calibre : 22 mm" → `Diamètre antéro-postérieur : 22 mm (Normal)`.
+  `classifyAorteDiameter` (exported, unit-tested) resolves the band from the
+  measurement using `AORTE_REFERENCE_NOTE`'s thresholds — `< 25 mm` Normal,
+  `25–29` Ectasie, `>= 30` Anévrisme. The note leaves 29–30 open; the boundary
+  is closed at the clinical convention (`>= 30`).
+  **This is a deliberate narrow exception to the 2026-08-31 "no auto-labelling
+  of a measurement" rule**, requested by the doctor 2026-09-01. It is scoped to
+  this one threshold table and nothing else — TSA/MI reference notes stay
+  purely printed text.
+  Because `aorte_diametre` is free text, a value that isn't a single
+  measurement — a range ("14 à 18 mm"), prose ("non visualisée"), empty —
+  falls back to printing the unresolved options `(Normal/Ectasie/Anévrisme)`
+  rather than guessing.
+- **Both aneurysm fields are retired from the UI and the PDF.** The aorta now
+  reads as a single line; there is no `Anévrisme : Oui/Non` tick and no
+  separate `Diamètre de l'anévrisme (mm)` — when there is an aneurysm, the
+  antéro-postérieur measurement *is* its diameter. Removed from:
+  `shared-labels` (`REPORT_FIELD_LABELS.aorte_anevrisme` /
+  `…_anevrisme_diametre_mm`, so `ReportFieldKey` narrowed), the report-builder
+  form (`types.ts` form-state, `consts.ts` defaults + zod schema, the `Switch`
+  and `NumberField` in `ReportBuilder.tsx`), and the request payload
+  (`ReportBuilderHelper.createReport`, `AorteAbdominaleInput`).
+  Knock-on: `aorte_anevrisme` was the form's only boolean, so with it gone
+  every `ReportBuilderFormValues` value is a `string` and the four
+  `field.state.value as string` casts in `ReportBuilder.tsx` became redundant
+  (removed — lint flagged them).
+  **The `aorte_anevrisme` / `aorte_anevrisme_diametre_mm` columns are NOT
+  dropped**, and `POST /patients/:id/reports` still accepts both (optional,
+  defaulting to `false`/`null`). Reports are append-only medical records — a
+  migration would destroy what past exams recorded. They are simply no longer
+  written by the app or read by the PDF.
+  **Known consequence:** a legacy report that recorded *only* an aneurysm
+  (tick and/or its diameter) with an empty `aorte_diametre` and no findings
+  text now renders **no Aorte section at all** — `aorteHasContent` is
+  `aorte_diametre || aorte_findings_text` only. If that turns out to matter,
+  the fix is to fall back to `aorte_anevrisme_diametre_mm` as the displayed
+  diameter rather than to re-add the line.
+- **`REPORT_FIELD_LABELS.aorte_diametre` relabelled** "Diamètre / calibre" →
+  "Diamètre antéro-postérieur (mm)", so the report-builder input matches what
+  the PDF prints. Form label only — the PDF does not import
+  `REPORT_FIELD_LABELS`.
+- **The diameter input is now numeric.** `ReportBuilder.tsx` uses `NumberField`
+  instead of `TextField` and the zod rule went `z.string()` →
+  `optionalNumericString`, so the doctor types `22`, not `22 mm`.
+  The **`aorte_diametre` column stays TEXT** and the API still takes a string —
+  no migration, so legacy free-text values ("14 à 18 mm", "non visualisée")
+  survive intact and still render. Only new entries are constrained to numbers.
+  Because the form now sends a bare number, the PDF appends the unit via
+  `formatAorteDiametre` (exported, unit-tested): a value that is only digits /
+  separators gets " mm", anything already carrying a unit is left alone — which
+  is what stops legacy "22 mm" printing as "22 mm mm".
+- **Empty regions are omitted entirely** — header, fields and the "Repères"
+  note. A TSA-only exam no longer prints Aorte/MI boilerplate. If all three
+  regions are empty, RÉSULTATS prints "Aucun résultat renseigné.". The
+  Gauche/Droite header row is likewise skipped when a region has narrative
+  findings but no per-side numbers.
+- **All dates render dd/mm/yyyy.** `report.exam_date` and
+  `clinic_settings.mindray_service_date` were printing raw ISO next to a
+  `formatDateFR`'d date of birth. `formatDateFR` now takes `string | null` and
+  passes through anything that isn't a plain ISO date rather than rendering
+  "Invalid Date".
+- **Pagination**: continuation pages repeat `NOM Prénom — né(e) le … — examen
+  du …` at the top, and every page gets a right-aligned `Page n/N` footer —
+  suppressed on a single-page report so it never reads "Page 1/1". Page numbers
+  are stamped in a second pass, since the total isn't known until the end.
+- **PDF metadata** is set (Title = `Compte rendu Écho-Doppler — NOM Prénom —
+  date`, Author = `report.doctor_name`, Subject, Creator/Producer
+  "DocDoppler") so archived files are identifiable in a file manager.
+
+**Font: Liberation Sans, bundled at `packages/api-gateway/assets/fonts/`**
+(SIL OFL, `LICENSE.txt` alongside). This replaced pdf-lib's built-in
+`StandardFonts.Helvetica`, which is WinAnsi/CP1252-only and **threw** on
+characters a vascular report legitimately contains — verified:
+`WinAnsi cannot encode "≥" (0x2265)`, same for `≤`, `→`, `≈`. A doctor typing
+"sténose ≥ 70%" in any free-text field crashed PDF generation outright.
+Liberation Sans is metrically compatible with Helvetica, so the column widths
+above were unaffected. Embedded via `@pdf-lib/fontkit` with `subset: true`;
+cost is ~3.5KB → ~27KB per PDF (unsubsetted would be ~800KB). The TTFs are
+committed — no runtime download, consistent with the local-only constraint.
+
+Also: `wrapText` is now exported and takes a `measure: (text) => number`
+callback instead of `(font, size)`, which makes it unit-testable without a
+PDF document, and it breaks tokens longer than the line instead of letting
+them run off the page edge.
+
 ## IPS (Index de Pression Systolique / ABI) — formula confirmed 2026-08-21
 
 Doctor confirmed directly: "les deux chevilles et deux bras, [s]ystolique (pas

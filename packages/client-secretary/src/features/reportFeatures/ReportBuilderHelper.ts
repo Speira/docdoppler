@@ -41,8 +41,6 @@ export class ReportBuilderHelper {
       },
       aorte_abdominale: {
         diametre: values.aorte_diametre,
-        anevrisme: values.aorte_anevrisme,
-        anevrisme_diametre_mm: parseOptionalNumber(values.aorte_anevrisme_diametre_mm),
         findings_text: values.aorte_findings_text,
       },
       membres_inferieurs: {

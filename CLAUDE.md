@@ -54,7 +54,17 @@
   earlier hardcoded placeholders. `reports.doctor_name` stays a separate, per-report field —
   it's pre-filled from `clinic_settings.doctor_name` when a new report is started, but stays
   independently editable and is never retroactively affected by later settings changes. See
-  docs/report-module.md.
+  docs/report-module.md. PDF layout reworked 2026-09-01 (indentation reflects nesting,
+  Gauche/Droite as inline `- Droite : …` rows, risk factors inline as `Bilan vasculaire : HTA, …`,
+  empty regions omitted, dd/mm/yyyy dates, `Page n/N` on multi-page reports, PDF metadata)
+  — see that file's 2026-09-01 revision. The aorta's Normal/Ectasie/Anévrisme band is now
+  **derived** from the diameter (`classifyAorteDiameter`) — a deliberate, narrowly-scoped
+  exception to the "no auto-labelling of a measurement" rule; the `anevrisme` tick and
+  `anevrisme_diametre_mm` field were removed from the form/PDF as a result. Their DB columns
+  are kept (reports are append-only medical records) and the API still accepts them.
+  **The PDF font is Liberation Sans, committed at `packages/api-gateway/assets/fonts/`** and
+  embedded via `@pdf-lib/fontkit`; do not revert to pdf-lib's `StandardFonts`, which are
+  CP1252-only and throw on `≥`/`≤`/`→` in the doctor's free text.
 - DICOM Worklist bridge: see docs/dicom-worklist-bridge.md — the standalone SCP
   (`packages/dicom-bridge`) and its `GET /worklist` endpoint on `api-gateway` are
   implemented and tested, but DO NOT wire this into the main app (no "save

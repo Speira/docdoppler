@@ -9,8 +9,6 @@ export type ReportBuilderFormValues = {
   tsa_aci_acc_ratio_gauche: string
   tsa_findings_text: string
   aorte_diametre: string
-  aorte_anevrisme: boolean
-  aorte_anevrisme_diametre_mm: string
   aorte_findings_text: string
   mi_pression_cheville_droite: string
   mi_pression_cheville_gauche: string

@@ -23,7 +23,6 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
-import { Switch } from '#/components/ui/switch'
 import { Textarea } from '#/components/ui/textarea'
 
 function fieldErrorMessage(errors: unknown[]): string {
@@ -87,7 +86,7 @@ function TextField({
           <Input
             id={field.name}
             name={field.name}
-            value={field.state.value as string}
+            value={field.state.value}
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             aria-invalid={!field.state.meta.isValid}
@@ -126,7 +125,7 @@ function NumberField({
             name={field.name}
             type="number"
             step="any"
-            value={field.state.value as string}
+            value={field.state.value}
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             aria-invalid={!field.state.meta.isValid}
@@ -158,7 +157,7 @@ function PressureField({
   return (
     <form.Field name={name}>
       {(field) => {
-        const value = field.state.value as string
+        const value = field.state.value
         const outOfRange =
           field.state.meta.isValid && isPressureOutOfRange(value)
         return (
@@ -221,7 +220,7 @@ function TextAreaField({
           <Label htmlFor={field.name}>{t(label)}</Label>
           <Textarea
             id={field.name}
-            value={field.state.value as string}
+            value={field.state.value}
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             placeholder={t('Constatations…')}
@@ -460,26 +459,10 @@ function ReportBuilderView({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField
+              <NumberField
                 form={form}
                 name="aorte_diametre"
                 label={REPORT_FIELD_LABELS.aorte_diametre}
-              />
-              <form.Field name="aorte_anevrisme">
-                {(field) => (
-                  <label className="flex items-center gap-2 text-sm">
-                    {t(REPORT_FIELD_LABELS.aorte_anevrisme)}
-                    <Switch
-                      checked={field.state.value}
-                      onCheckedChange={(v) => field.handleChange(v)}
-                    />
-                  </label>
-                )}
-              </form.Field>
-              <NumberField
-                form={form}
-                name="aorte_anevrisme_diametre_mm"
-                label={REPORT_FIELD_LABELS.aorte_anevrisme_diametre_mm}
               />
             </div>
             <TextAreaField
