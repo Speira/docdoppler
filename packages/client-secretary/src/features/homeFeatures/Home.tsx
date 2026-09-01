@@ -57,7 +57,8 @@ function HomeView({ statsPromise }: { statsPromise: Promise<HomeStats> }) {
           })}
         />
         <HomeCard
-          to="/reports"
+          to="/patients"
+          search={{ reportFilter: 'with' }}
           icon={<FileText className="h-6 w-6" />}
           title={t('Rapports')}
           description={t('Comptes rendus écho-Doppler par patient.')}
@@ -80,12 +81,14 @@ function HomeView({ statsPromise }: { statsPromise: Promise<HomeStats> }) {
 
 function HomeCard({
   to,
+  search,
   icon,
   title,
   description,
   stat,
 }: {
-  to: '/patients' | '/reports' | '/settings'
+  to: '/patients' | '/settings'
+  search?: Record<string, unknown>
   icon: React.ReactNode
   title: string
   description: string
@@ -94,6 +97,7 @@ function HomeCard({
   return (
     <Link
       to={to}
+      search={search}
       className="feature-card rise-in flex flex-col gap-3 rounded-2xl p-6 text-left"
     >
       <div className="flex items-center gap-3 text-primary">

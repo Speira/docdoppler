@@ -6,7 +6,6 @@ import logoXs from '#/assets/logo-xs.png'
 const NAV_ITEMS = [
   { to: '/', label: 'Accueil' },
   { to: '/patients', label: 'Patients' },
-  { to: '/reports', label: 'Rapports' },
   { to: '/settings', label: 'Paramètres' },
 ] as const
 
