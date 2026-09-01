@@ -1,3 +1,19 @@
+import type { MiArteryKey, MiSide } from '@speira-docdoppler/shared-labels'
+
+export type MiArterySpectreKey = `mi_${MiSide}_${MiArteryKey}_spectre`
+export type MiArteryVsmKey = `mi_${MiSide}_afc_vsm`
+
+export function arterySpectreKey(
+  side: MiSide,
+  artery: MiArteryKey,
+): MiArterySpectreKey {
+  return `mi_${side}_${artery}_spectre`
+}
+
+export function arteryVsmKey(side: MiSide): MiArteryVsmKey {
+  return `mi_${side}_afc_vsm`
+}
+
 export type ReportBuilderFormValues = {
   doctor_name: string
   exam_date: string
@@ -16,4 +32,5 @@ export type ReportBuilderFormValues = {
   mi_pression_bras_gauche: string
   mi_findings_text: string
   conclusion: string
-}
+} & Record<MiArterySpectreKey, string> &
+  Record<MiArteryVsmKey, string>

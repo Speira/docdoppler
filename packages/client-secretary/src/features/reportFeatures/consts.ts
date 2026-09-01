@@ -1,6 +1,32 @@
 import { z } from 'zod'
 
-import type { ReportBuilderFormValues } from './types'
+import {
+  MI_ARTERY_KEYS,
+  MI_SIDES,
+  SPECTRE_OPTIONS,
+} from '@speira-docdoppler/shared-labels'
+import { arterySpectreKey, arteryVsmKey } from './types'
+import type {
+  MiArterySpectreKey,
+  MiArteryVsmKey,
+  ReportBuilderFormValues,
+} from './types'
+
+type ArteryFieldValues = Record<MiArterySpectreKey, string> &
+  Record<MiArteryVsmKey, string>
+
+// 14 fields (6 spectres per side + a VSM on each AFC) — generated from the
+// artery list so adding an artery never means editing three files.
+function arteryDefaults(): ArteryFieldValues {
+  const values = {} as ArteryFieldValues
+  for (const side of MI_SIDES) {
+    for (const artery of MI_ARTERY_KEYS) {
+      values[arterySpectreKey(side, artery)] = ''
+    }
+    values[arteryVsmKey(side)] = ''
+  }
+  return values
+}
 
 export function getReportBuilderDefaultValues(
   examDate: string,
@@ -23,6 +49,7 @@ export function getReportBuilderDefaultValues(
     mi_pression_bras_droit: '',
     mi_pression_bras_gauche: '',
     mi_findings_text: '',
+    ...arteryDefaults(),
     conclusion: '',
   }
 }
@@ -32,6 +59,27 @@ const optionalNumericString = z
   .refine((value) => value.trim().length === 0 || !Number.isNaN(Number(value)), {
     message: 'Doit être un nombre.',
   })
+
+const optionalSpectre = z
+  .string()
+  .refine(
+    (value) => value === '' || (SPECTRE_OPTIONS as readonly string[]).includes(value),
+    { message: 'Spectre invalide.' },
+  )
+
+type ArterySchemaShape = Record<MiArterySpectreKey, z.ZodType<string, string>> &
+  Record<MiArteryVsmKey, z.ZodType<string, string>>
+
+function arterySchemaShape(): ArterySchemaShape {
+  const shape = {} as ArterySchemaShape
+  for (const side of MI_SIDES) {
+    for (const artery of MI_ARTERY_KEYS) {
+      shape[arterySpectreKey(side, artery)] = optionalSpectre
+    }
+    shape[arteryVsmKey(side)] = optionalNumericString
+  }
+  return shape
+}
 
 export const reportBuilderFormSchema = z.object({
   doctor_name: z.string().trim().min(1, 'Le nom du médecin est requis.'),
@@ -51,4 +99,5 @@ export const reportBuilderFormSchema = z.object({
   mi_pression_bras_gauche: optionalNumericString,
   mi_findings_text: z.string(),
   conclusion: z.string(),
+  ...arterySchemaShape(),
 })
