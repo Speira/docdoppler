@@ -4,6 +4,7 @@ import { Suspense, use } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { HomeStats } from './HomeHelper'
+import type { ReportStatusFilter } from '#/features/patientFeatures/PatientListHelper'
 import logoInline from '#/assets/logo-inline.png'
 
 export function Home({ statsPromise }: { statsPromise: Promise<HomeStats> }) {
@@ -88,7 +89,7 @@ function HomeCard({
   stat,
 }: {
   to: '/patients' | '/settings'
-  search?: Record<string, unknown>
+  search?: { reportFilter?: ReportStatusFilter }
   icon: React.ReactNode
   title: string
   description: string

@@ -6,13 +6,13 @@ import { toast } from 'sonner'
 
 import { PatientEditHelper } from './PatientEditHelper'
 import { PatientForm } from './PatientForm'
-import { PatientListHelper } from './PatientListHelper'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 import { usePatientForm } from './usePatientForm'
 import type { PatientFormValues } from './types'
 import { apiErrorMessage } from '#/services/patient-service'
 import { reportService } from '#/services/report-service'
 import type { ReportRecord } from '#/services/report-service'
+import { formatDateFR } from '#/lib/date'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -251,7 +251,7 @@ function ReportHistoryCard({ reports }: { reports: ReportRecord[] }) {
           <ul className="divide-y divide-border">
             {reports.map((report) => (
               <li key={report.id} className="flex items-center justify-between py-2">
-                <span className="text-sm">{PatientListHelper.formatDate(report.exam_date)}</span>
+                <span className="text-sm">{formatDateFR(report.exam_date)}</span>
                 <a href={reportService.reportPdfUrl(report.id)} target="_blank" rel="noreferrer">
                   <Button size="sm" variant="outline">
                     <Eye />

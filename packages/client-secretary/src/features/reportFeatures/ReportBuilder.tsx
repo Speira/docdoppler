@@ -317,7 +317,7 @@ function ReportBuilderView({
             {patient.last_name.toUpperCase()} {patient.first_name}
           </p>
         </div>
-        <Link to="/reports">
+        <Link to="/patients">
           <Button type="button" variant="outline">
             <ArrowLeft />
             {t('Retour')}

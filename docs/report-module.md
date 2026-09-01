@@ -167,6 +167,15 @@ visits happens on the patient detail screen (`/patients/add?id=`), which now
 shows a read-only "Historique des rapports" list of every report for that
 patient, each linking to its PDF.
 
+**Known follow-up:** the patients list decorates each patient with their
+latest report via one request per patient
+(`PatientListHelper.listPatientsWithReportStatus`, a 1+N fan-out over
+`GET /patients/:id/reports`) — fine at clinic scale, but it will not hold at
+a few thousand patients now that `/patients` is the app's primary landing
+page. The fix when it's needed is to return a `latest_report_id` directly
+from `api-gateway`'s patient list query (a `LEFT JOIN` on the latest report
+per patient) and drop the fan-out.
+
 ## Explicitly out of scope for this module
 
 - No MSSanté/Doctolib/patient portal integration — secretary handles distribution

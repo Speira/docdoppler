@@ -55,6 +55,20 @@ describe('PatientListHelper.listPatientsWithReportStatus', () => {
 
     expect(result[0].latestReportId).toBeNull()
   })
+
+  it('keeps patients aligned with their own report result when results are mixed', async () => {
+    vi.mocked(patientService.listPatients).mockResolvedValue([patient(1), patient(2)])
+    vi.mocked(reportService.listReports)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce([{ id: 99 } as never])
+
+    const result = await PatientListHelper.listPatientsWithReportStatus()
+
+    expect(result).toEqual([
+      { ...patient(1), latestReportId: null },
+      { ...patient(2), latestReportId: 99 },
+    ])
+  })
 })
 
 describe('PatientListHelper.filterByReportStatus', () => {

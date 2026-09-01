@@ -7,9 +7,10 @@ import { RouteError } from '#/components/route-error'
 import { i18next } from '#/lib/i18n'
 
 export const Route = createFileRoute('/patients/')({
-  validateSearch: (search: Record<string, unknown>): { reportFilter?: ReportStatusFilter } => ({
-    reportFilter: PatientListHelper.parseReportFilter(search.reportFilter),
-  }),
+  validateSearch: (search: Record<string, unknown>): { reportFilter?: ReportStatusFilter } => {
+    const reportFilter = PatientListHelper.parseReportFilter(search.reportFilter)
+    return reportFilter === 'all' ? {} : { reportFilter }
+  },
   loader: () => ({ patients: PatientListHelper.listPatientsWithReportStatus() }),
   head: () => ({
     meta: [
