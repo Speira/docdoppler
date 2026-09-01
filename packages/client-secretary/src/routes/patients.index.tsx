@@ -1,12 +1,16 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { PatientList } from '#/features/patientFeatures/PatientList'
 import { PatientListHelper } from '#/features/patientFeatures/PatientListHelper'
+import type { ReportStatusFilter } from '#/features/patientFeatures/PatientListHelper'
 import { RouteError } from '#/components/route-error'
 import { i18next } from '#/lib/i18n'
 
 export const Route = createFileRoute('/patients/')({
-  loader: () => ({ patients: PatientListHelper.listPatients() }),
+  validateSearch: (search: Record<string, unknown>): { reportFilter: ReportStatusFilter } => ({
+    reportFilter: PatientListHelper.parseReportFilter(search.reportFilter),
+  }),
+  loader: () => ({ patients: PatientListHelper.listPatientsWithReportStatus() }),
   head: () => ({
     meta: [
       { title: i18next.t('Patients — DocDoppler') },
@@ -22,5 +26,16 @@ export const Route = createFileRoute('/patients/')({
 
 function RouteComponent() {
   const { patients } = Route.useLoaderData()
-  return <PatientList patientsPromise={patients} />
+  const { reportFilter } = Route.useSearch()
+  const navigate = useNavigate()
+
+  return (
+    <PatientList
+      patientsPromise={patients}
+      reportFilter={reportFilter}
+      onReportFilterChange={(filter) =>
+        navigate({ to: '/patients', search: { reportFilter: filter }, replace: true })
+      }
+    />
+  )
 }
