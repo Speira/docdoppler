@@ -1,5 +1,13 @@
 import { isValidIsoDate } from "./patients.js";
 import type { CreateReportInput } from "../db/reports.js";
+import {
+  MI_ARTERY_KEYS,
+  MI_SIDES,
+  SPECTRE_OPTIONS,
+  type MiArteryKey,
+  type MiSide,
+} from "@speira-docdoppler/shared-labels";
+import type { ArteriesBySide } from "../db/arteries.js";
 
 export type ReportValidationErrorCode =
   | "DOCTOR_NAME_REQUIRED"
@@ -30,6 +38,40 @@ function optionalBoolean(value: unknown): boolean | typeof INVALID {
 }
 
 const INVALID = Symbol("invalid");
+
+function optionalSpectre(value: unknown): string | typeof INVALID {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value !== "string") return INVALID;
+  return (SPECTRE_OPTIONS as readonly string[]).includes(value) ? value : INVALID;
+}
+
+function validateArteries(value: unknown): ArteriesBySide | typeof INVALID {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object") return INVALID;
+  const bySideInput = value as Record<string, unknown>;
+  const arteres: ArteriesBySide = {};
+
+  for (const sideKey of Object.keys(bySideInput)) {
+    if (!(MI_SIDES as readonly string[]).includes(sideKey)) return INVALID;
+    const side = sideKey as MiSide;
+    const arteriesInput = (bySideInput[sideKey] ?? {}) as Record<string, unknown>;
+    if (typeof arteriesInput !== "object") return INVALID;
+
+    for (const arteryKey of Object.keys(arteriesInput)) {
+      if (!(MI_ARTERY_KEYS as readonly string[]).includes(arteryKey)) return INVALID;
+      const artery = arteryKey as MiArteryKey;
+      const entry = (arteriesInput[arteryKey] ?? {}) as Record<string, unknown>;
+      if (typeof entry !== "object") return INVALID;
+
+      const vsm = optionalNumber(entry.vsm);
+      const spectre = optionalSpectre(entry.spectre);
+      if (vsm === INVALID || spectre === INVALID) return INVALID;
+
+      (arteres[side] ??= {})[artery] = { vsm, spectre };
+    }
+  }
+  return arteres;
+}
 
 export function validateCreateReport(
   body: unknown,
@@ -67,7 +109,7 @@ export function validateCreateReport(
     mi_pression_bras_droit: optionalNumber(mi.pression_bras_droit),
     mi_pression_bras_gauche: optionalNumber(mi.pression_bras_gauche),
     mi_findings_text: optionalString(mi.findings_text),
-    mi_arteres: {},
+    mi_arteres: validateArteries(mi.arteres),
     conclusion: optionalString(b.conclusion),
   };
 

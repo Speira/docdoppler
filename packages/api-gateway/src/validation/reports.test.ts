@@ -123,4 +123,62 @@ describe("validateCreateReport", () => {
     });
     expect(result).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
   });
+
+  describe("membres_inferieurs.arteres", () => {
+    it("accepts a body with no arteres at all", () => {
+      const result = validateCreateReport(valid);
+      expect(result.valid).toBe(true);
+      if (result.valid) expect(result.data.mi_arteres).toEqual({});
+    });
+
+    it("keeps the entered spectre and vsm", () => {
+      const result = validateCreateReport({
+        ...valid,
+        membres_inferieurs: {
+          arteres: { droite: { afc: { vsm: 90, spectre: "triphasique" } } },
+        },
+      });
+      expect(result.valid).toBe(true);
+      if (result.valid) {
+        expect(result.data.mi_arteres.droite?.afc).toEqual({
+          vsm: 90,
+          spectre: "triphasique",
+        });
+      }
+    });
+
+    it("rejects a spectre outside the allowed set", () => {
+      const result = validateCreateReport({
+        ...valid,
+        membres_inferieurs: {
+          arteres: { droite: { afc: { spectre: "bruit" } } },
+        },
+      });
+      expect(result).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+    });
+
+    it("rejects an unknown artery or side key", () => {
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { droite: { carotide: { spectre: "" } } } },
+        }),
+      ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { milieu: { afc: { spectre: "" } } } },
+        }),
+      ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+    });
+
+    it("rejects a non-numeric vsm", () => {
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { droite: { afc: { vsm: "90" } } } },
+        }),
+      ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+    });
+  });
 });

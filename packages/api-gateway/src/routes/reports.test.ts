@@ -82,6 +82,37 @@ describe("patient reports routes", () => {
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
     });
+
+    it("round-trips arteres through the endpoint", async () => {
+      const patient = await createTestPatient();
+      const response = await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({
+          doctor_name: "Dr Martin",
+          exam_date: "2026-08-13",
+          membres_inferieurs: {
+            arteres: { droite: { afc: { vsm: 90, spectre: "triphasique" } } },
+          },
+        });
+      expect(response.status).toBe(201);
+      expect(response.body.arteres.droite.afc).toEqual({
+        vsm: 90,
+        spectre: "triphasique",
+      });
+    });
+
+    it("rejects an invalid spectre with REPORT_FIELD_INVALID", async () => {
+      const patient = await createTestPatient();
+      const response = await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({
+          doctor_name: "Dr Martin",
+          exam_date: "2026-08-13",
+          membres_inferieurs: { arteres: { droite: { afc: { spectre: "bruit" } } } },
+        });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: "REPORT_FIELD_INVALID" });
+    });
   });
 
   describe("GET /patients/:id/reports", () => {
