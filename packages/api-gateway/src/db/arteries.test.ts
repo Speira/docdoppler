@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { insertArteries, getArteriesForReport, getArteriesForReports } from "./arteries.js";
+import type { Spectre } from "@speira-docdoppler/shared-labels";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,7 +71,9 @@ describe("report arteries", () => {
   it("rejects a spectre outside the allowed set", () => {
     const db = makeDb();
     expect(() =>
-      insertArteries(db, 1, { droite: { afc: { vsm: null, spectre: "bruit" } } }),
+      // Deliberately outside the Spectre union — exercises the DB's own
+      // CHECK constraint, not the (separate) request-level validation.
+      insertArteries(db, 1, { droite: { afc: { vsm: null, spectre: "bruit" as Spectre } } }),
     ).toThrow();
   });
 

@@ -525,6 +525,43 @@ describe("buildReportPdf", () => {
     expect(parsed.text).not.toContain("- Gauche");
   });
 
+  it("prints the Gauche header even when only arteries are present (no IPS)", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        mi_ips_gauche: null,
+        arteres: { gauche: { afc: { vsm: 55, spectre: "monophasique" } } },
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain("- Gauche :");
+  });
+
+  it("draws the Gauche header between the Droite and Gauche artery rows when only Droite has an IPS", async () => {
+    const bytes = await buildReportPdf(
+      makePatient(),
+      undefined,
+      makeReport({
+        mi_ips_droit: 0.86,
+        mi_ips_gauche: null,
+        arteres: {
+          droite: { afc: { vsm: 90, spectre: "triphasique" } },
+          gauche: { afc: { vsm: 55, spectre: "monophasique" } },
+        },
+      }),
+      makeSettings(),
+    );
+    const parsed = await parsePdf(bytes);
+    const droiteAfc = parsed.text.indexOf("VSM : 90 cm/s");
+    const gaucheHeader = parsed.text.indexOf("- Gauche :");
+    const gaucheAfc = parsed.text.indexOf("VSM : 55 cm/s");
+    expect(droiteAfc).toBeGreaterThanOrEqual(0);
+    expect(gaucheHeader).toBeGreaterThan(droiteAfc);
+    expect(gaucheAfc).toBeGreaterThan(gaucheHeader);
+  });
+
   it("still prints the constatations and the MI reference note", async () => {
     const bytes = await buildReportPdf(
       makePatient(),

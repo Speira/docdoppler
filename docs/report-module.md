@@ -401,8 +401,9 @@ scope here, per the 2026-08-31 note.
 - `db/reports.ts`'s `createReport` now wraps the `reports` insert and the
   artery inserts in one `better-sqlite3` `db.transaction` — all-or-nothing.
   `getReport` and `listReportsByPatient` now return `ReportWithArteries`
-  (`ReportRow & { arteres: ArteriesBySide }`); `buildReportPdf`'s signature is
-  unchanged (it already took a report object).
+  (`ReportRow & { arteres: ArteriesBySide }`); `buildReportPdf` takes the same
+  four parameters — the report parameter's type widened from `ReportRow` to
+  `ReportWithArteries`.
 - **API**: `POST /patients/:id/reports`'s `membres_inferieurs` gains an
   optional `arteres: { [side]: { [artery]: { vsm, spectre } } }`; the response
   returns the same shape under `arteres`. An omitted side, an omitted artery,

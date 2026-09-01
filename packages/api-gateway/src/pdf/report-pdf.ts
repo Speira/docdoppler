@@ -491,7 +491,14 @@ export async function buildReportPdf(
     draw(REPORT_SECTION_LABELS.membres_inferieurs, 11, true, INDENT_1);
     for (const side of MI_SIDES) {
       if (!sideHasContent(side)) continue;
-      drawSideRow(MI_SIDE_LABELS[side], [sidePart("IPS", ipsBySide[side])]);
+      // Unlike drawSideRow (still used by TSA), this header must print even
+      // when there is no IPS: the artery rows that follow are only
+      // attributable to this side because of this header. Losing it (e.g. an
+      // IPS-only early return) would let a left-leg artery row render
+      // directly under the right-leg heading — the most safety-critical
+      // mislabelling this section can produce.
+      const ips = sidePart("IPS", ipsBySide[side]);
+      drawWrapped(`- ${MI_SIDE_LABELS[side]} :${ips ? ` ${ips}` : ""}`, 10, INDENT_2);
       for (const artery of MI_ARTERY_KEYS) {
         const entry = report.arteres[side]?.[artery];
         if (!entry) continue;

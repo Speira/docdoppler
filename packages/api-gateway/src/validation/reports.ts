@@ -6,6 +6,7 @@ import {
   SPECTRE_OPTIONS,
   type MiArteryKey,
   type MiSide,
+  type Spectre,
 } from "@speira-docdoppler/shared-labels";
 import type { ArteriesBySide } from "../db/arteries.js";
 
@@ -39,10 +40,12 @@ function optionalBoolean(value: unknown): boolean | typeof INVALID {
 
 const INVALID = Symbol("invalid");
 
-function optionalSpectre(value: unknown): string | typeof INVALID {
+function optionalSpectre(value: unknown): Spectre | "" | typeof INVALID {
   if (value === undefined || value === null || value === "") return "";
   if (typeof value !== "string") return INVALID;
-  return (SPECTRE_OPTIONS as readonly string[]).includes(value) ? value : INVALID;
+  return (SPECTRE_OPTIONS as readonly string[]).includes(value)
+    ? (value as Spectre)
+    : INVALID;
 }
 
 function validateArteries(value: unknown): ArteriesBySide | typeof INVALID {

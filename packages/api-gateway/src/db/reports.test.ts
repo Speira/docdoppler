@@ -3,6 +3,7 @@ import { createConnection } from "./index.js";
 import { createPatient } from "./patients.js";
 import { createReport, getReport, listReportsByPatient } from "./reports.js";
 import type { CreateReportInput } from "./reports.js";
+import type { Spectre } from "@speira-docdoppler/shared-labels";
 
 const MINIMAL_INPUT: CreateReportInput = {
   doctor_name: "Dr. Martin",
@@ -161,7 +162,9 @@ describe("reports data access", () => {
     expect(() =>
       createReport(db, patient.id, {
         ...MINIMAL_INPUT,
-        mi_arteres: { droite: { afc: { vsm: null, spectre: "bruit" } } },
+        // Deliberately outside the Spectre union — bypasses validateArteries
+        // to exercise the DB's own CHECK constraint as defense in depth.
+        mi_arteres: { droite: { afc: { vsm: null, spectre: "bruit" as Spectre } } },
       }),
     ).toThrow();
     expect(listReportsByPatient(db, patient.id)).toHaveLength(0);

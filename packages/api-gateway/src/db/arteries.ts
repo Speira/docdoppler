@@ -4,11 +4,12 @@ import {
   MI_SIDES,
   type MiArteryKey,
   type MiSide,
+  type Spectre,
 } from "@speira-docdoppler/shared-labels";
 
 export interface ArteryEntry {
   vsm: number | null;
-  spectre: string;
+  spectre: Spectre | "";
 }
 
 export type ArteriesBySide = Partial<
@@ -20,7 +21,7 @@ interface ReportArteryRow {
   side: MiSide;
   artery: MiArteryKey;
   vsm: number | null;
-  spectre: string;
+  spectre: Spectre | "";
 }
 
 // Sparse by design: an artery the doctor did not examine gets no row, so a
@@ -62,7 +63,9 @@ export function getArteriesForReport(
   reportId: number,
 ): ArteriesBySide {
   const rows = db
-    .prepare("SELECT * FROM report_arteries WHERE report_id = ?")
+    .prepare(
+      "SELECT report_id, side, artery, vsm, spectre FROM report_arteries WHERE report_id = ?",
+    )
     .all(reportId) as ReportArteryRow[];
   return group(rows);
 }
@@ -75,7 +78,9 @@ export function getArteriesForReports(
   if (reportIds.length === 0) return grouped;
   const placeholders = reportIds.map(() => "?").join(", ");
   const rows = db
-    .prepare(`SELECT * FROM report_arteries WHERE report_id IN (${placeholders})`)
+    .prepare(
+      `SELECT report_id, side, artery, vsm, spectre FROM report_arteries WHERE report_id IN (${placeholders})`,
+    )
     .all(...reportIds) as ReportArteryRow[];
   const byId = new Map<number, ReportArteryRow[]>();
   for (const row of rows) {
