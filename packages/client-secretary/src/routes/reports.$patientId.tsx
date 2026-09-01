@@ -12,7 +12,7 @@ export const Route = createFileRoute('/reports/$patientId')({
   }),
   errorComponent: ({ error }) => <RouteError error={error} />,
   head: () => ({
-    meta: [{ title: i18next.t('Rapport — Echo Link') }],
+    meta: [{ title: i18next.t('Rapport — DocDoppler') }],
   }),
   component: RouteComponent,
 })

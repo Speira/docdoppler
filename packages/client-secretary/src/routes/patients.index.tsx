@@ -9,7 +9,7 @@ export const Route = createFileRoute('/patients/')({
   loader: () => ({ patients: PatientListHelper.listPatients() }),
   head: () => ({
     meta: [
-      { title: i18next.t('Patients — Echo Link') },
+      { title: i18next.t('Patients — DocDoppler') },
       {
         name: 'description',
         content: i18next.t('Liste des patients du cabinet.'),

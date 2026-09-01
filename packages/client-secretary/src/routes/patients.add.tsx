@@ -32,7 +32,7 @@ export const Route = createFileRoute('/patients/add')({
   errorComponent: ({ error }) => <RouteError error={error} />,
   head: () => ({
     meta: [
-      { title: i18next.t('Secrétariat — Echo Link') },
+      { title: i18next.t('Secrétariat — DocDoppler') },
       {
         name: 'description',
         content: i18next.t(

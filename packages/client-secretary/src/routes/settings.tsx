@@ -10,7 +10,7 @@ export const Route = createFileRoute('/settings')({
   errorComponent: ({ error }) => <RouteError error={error} />,
   head: () => ({
     meta: [
-      { title: i18next.t('Paramètres — Echo Link') },
+      { title: i18next.t('Paramètres — DocDoppler') },
       {
         name: 'description',
         content: i18next.t(

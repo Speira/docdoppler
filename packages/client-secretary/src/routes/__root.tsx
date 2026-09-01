@@ -20,7 +20,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: i18next.t('Echo Link — Secrétariat'),
+        title: i18next.t('DocDoppler — Secrétariat'),
       },
       {
         name: 'description',

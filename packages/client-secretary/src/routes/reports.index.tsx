@@ -10,7 +10,7 @@ export const Route = createFileRoute('/reports/')({
   errorComponent: ({ error }) => <RouteError error={error} />,
   head: () => ({
     meta: [
-      { title: i18next.t('Rapports — Echo Link') },
+      { title: i18next.t('Rapports — DocDoppler') },
       {
         name: 'description',
         content: i18next.t('Créer ou consulter un rapport de patient.'),

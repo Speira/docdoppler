@@ -22,7 +22,7 @@
 
 ## Screens
 
-0. Homepage (`/`, implemented 2026-08-24): landing page with cards linking to Patients/Rapports/Paramètres + light stats (patient count, patients with a report, settings configured); global `SiteHeader`/`SiteFooter` (app name "Echo Link") wrap every route via `routes/__root.tsx`
+0. Homepage (`/`, implemented 2026-08-24): landing page with cards linking to Patients/Rapports/Paramètres + light stats (patient count, patients with a report, settings configured); global `SiteHeader`/`SiteFooter` (app name "DocDoppler") wrap every route via `routes/__root.tsx`
 1. Secretary intake: patient identity + medical history form (`/patients/add`, create or edit via `?id=`) — patient list is `/patients`
 2. Doctor report builder: read patient + history, enter findings per exam region, generate PDF
 3. Clinic identity settings (`/settings`, implemented 2026-08-24): doctor/clinic letterhead + Mindray machine info, used as defaults in the report PDF — see docs/report-module.md

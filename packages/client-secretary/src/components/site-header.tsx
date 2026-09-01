@@ -20,9 +20,9 @@ export function SiteHeader() {
     >
       <div className="page-wrap flex h-16 items-center justify-between gap-6">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logoXs} alt="Echo Link" className="h-8 w-auto" />
+          <img src={logoXs} alt="DocDoppler" className="h-8 w-auto" />
           <span className="display-title text-lg font-bold text-primary">
-            {t('Echo Link')}
+            {t('DocDoppler')}
           </span>
         </Link>
         <nav className="flex items-center gap-6">

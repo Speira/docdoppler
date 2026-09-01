@@ -9,7 +9,7 @@ export const Route = createFileRoute('/')({
   loader: () => ({ stats: HomeHelper.loadStats() }),
   head: () => ({
     meta: [
-      { title: i18next.t('Echo Link — Accueil') },
+      { title: i18next.t('DocDoppler — Accueil') },
       {
         name: 'description',
         content: i18next.t(

@@ -37,7 +37,7 @@ function HomeView({ statsPromise }: { statsPromise: Promise<HomeStats> }) {
   return (
     <div className="page-wrap space-y-10 py-12">
       <div className="rise-in flex flex-col items-center gap-4 text-center">
-        <img src={logoInline} alt="Echo Link" className="h-14 w-auto" />
+        <img src={logoInline} alt="DocDoppler" className="h-14 w-auto" />
         <p className="max-w-xl text-sm text-muted-foreground">
           {t(
             'Suivi patient et comptes rendus écho-Doppler vasculaire, en local au cabinet.',
