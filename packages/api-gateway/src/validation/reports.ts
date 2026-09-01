@@ -47,20 +47,24 @@ function optionalSpectre(value: unknown): string | typeof INVALID {
 
 function validateArteries(value: unknown): ArteriesBySide | typeof INVALID {
   if (value === undefined || value === null) return {};
-  if (typeof value !== "object") return INVALID;
+  if (typeof value !== "object" || Array.isArray(value)) return INVALID;
   const bySideInput = value as Record<string, unknown>;
   const arteres: ArteriesBySide = {};
 
   for (const sideKey of Object.keys(bySideInput)) {
     if (!(MI_SIDES as readonly string[]).includes(sideKey)) return INVALID;
     const side = sideKey as MiSide;
-    const arteriesInput = (bySideInput[sideKey] ?? {}) as Record<string, unknown>;
+    const sideValue = bySideInput[sideKey];
+    if (Array.isArray(sideValue)) return INVALID;
+    const arteriesInput = (sideValue ?? {}) as Record<string, unknown>;
     if (typeof arteriesInput !== "object") return INVALID;
 
     for (const arteryKey of Object.keys(arteriesInput)) {
       if (!(MI_ARTERY_KEYS as readonly string[]).includes(arteryKey)) return INVALID;
       const artery = arteryKey as MiArteryKey;
-      const entry = (arteriesInput[arteryKey] ?? {}) as Record<string, unknown>;
+      const entryValue = arteriesInput[arteryKey];
+      if (Array.isArray(entryValue)) return INVALID;
+      const entry = (entryValue ?? {}) as Record<string, unknown>;
       if (typeof entry !== "object") return INVALID;
 
       const vsm = optionalNumber(entry.vsm);

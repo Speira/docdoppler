@@ -180,5 +180,53 @@ describe("validateCreateReport", () => {
         }),
       ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
     });
+
+    it("rejects an array where the arteres object is expected", () => {
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: [] },
+        }),
+      ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+    });
+
+    it("rejects an array where a side's arteries object is expected", () => {
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { droite: [] } },
+        }),
+      ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+    });
+
+    it("rejects an array where an artery entry is expected", () => {
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { droite: { afc: [] } } },
+        }),
+      ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { droite: { afc: ["x", "y"] } } },
+        }),
+      ).toEqual({ valid: false, error: "REPORT_FIELD_INVALID" });
+    });
+
+    it("still accepts null side and null entry values", () => {
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { droite: null } },
+        }).valid,
+      ).toBe(true);
+      expect(
+        validateCreateReport({
+          ...valid,
+          membres_inferieurs: { arteres: { droite: { afc: null } } },
+        }).valid,
+      ).toBe(true);
+    });
   });
 });
