@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowLeft, ExternalLink, FileText } from 'lucide-react'
-import { Suspense, use, useState } from 'react'
+import { Fragment, Suspense, use, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -14,6 +14,7 @@ import {
   MI_SIDE_LABELS,
   SPECTRE_OPTIONS,
 } from '@speira-docdoppler/shared-labels'
+import type { MiSide } from '@speira-docdoppler/shared-labels'
 
 import { ReportBuilderHelper } from './ReportBuilderHelper'
 import { computeIpsPreview, isPressureOutOfRange } from './ips'
@@ -25,6 +26,7 @@ import { reportApiErrorMessage, reportService } from '#/services/report-service'
 import type { PatientWithRiskFactors } from '#/services/patient-service'
 import type { ClinicSettingsRecord } from '#/services/settings-service'
 import { formatDateFR } from '#/lib/date'
+import { cn } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
@@ -37,6 +39,19 @@ import {
   SelectValue,
 } from '#/components/ui/select'
 import { Textarea } from '#/components/ui/textarea'
+
+// A field label is either a single French string or the parts of a composite
+// one ("Artère poplitée — Gauche — Spectre"): in the membres inférieurs matrix
+// the artery name and the side live in the table headers, so each control
+// carries the full, unambiguous wording in a visually-hidden <Label>.
+type FieldLabel = string | Array<string>
+
+function useFieldLabel(label: FieldLabel): string {
+  const { t } = useTranslation()
+  return Array.isArray(label)
+    ? label.map((part) => t(part)).join(' — ')
+    : t(label)
+}
 
 function fieldErrorMessage(errors: unknown[]): string {
   return errors
@@ -122,17 +137,23 @@ function NumberField({
   form,
   name,
   label,
+  className,
+  labelClassName,
 }: {
   form: ReportBuilderFormApi
   name: keyof ReportBuilderFormValues
-  label: string
+  label: FieldLabel
+  className?: string
+  labelClassName?: string
 }) {
-  const { t } = useTranslation()
+  const labelText = useFieldLabel(label)
   return (
     <form.Field name={name}>
       {(field) => (
-        <div className="grid gap-2">
-          <Label htmlFor={field.name}>{t(label)}</Label>
+        <div className={cn('grid content-start gap-2', className)}>
+          <Label htmlFor={field.name} className={labelClassName}>
+            {labelText}
+          </Label>
           <Input
             id={field.name}
             name={field.name}
@@ -165,24 +186,31 @@ function SpectreField({
   form,
   name,
   label,
+  className,
+  labelClassName,
 }: {
   form: ReportBuilderFormApi
   name: keyof ReportBuilderFormValues
-  label: string
+  label: FieldLabel
+  className?: string
+  labelClassName?: string
 }) {
   const { t } = useTranslation()
+  const labelText = useFieldLabel(label)
   return (
     <form.Field name={name}>
       {(field) => (
-        <div className="grid gap-2">
-          <Label htmlFor={field.name}>{t(label)}</Label>
+        <div className={cn('grid content-start gap-2', className)}>
+          <Label htmlFor={field.name} className={labelClassName}>
+            {labelText}
+          </Label>
           <Select
             value={field.state.value === '' ? SPECTRE_NONE : field.state.value}
             onValueChange={(value) =>
               field.handleChange(value === SPECTRE_NONE ? '' : value)
             }
           >
-            <SelectTrigger id={field.name}>
+            <SelectTrigger id={field.name} className="w-full">
               <SelectValue placeholder={t('Non examinée')} />
             </SelectTrigger>
             <SelectContent>
@@ -204,12 +232,17 @@ function PressureField({
   form,
   name,
   label,
+  className,
+  labelClassName,
 }: {
   form: ReportBuilderFormApi
   name: keyof ReportBuilderFormValues
-  label: string
+  label: FieldLabel
+  className?: string
+  labelClassName?: string
 }) {
   const { t } = useTranslation()
+  const labelText = useFieldLabel(label)
   return (
     <form.Field name={name}>
       {(field) => {
@@ -217,8 +250,10 @@ function PressureField({
         const outOfRange =
           field.state.meta.isValid && isPressureOutOfRange(value)
         return (
-          <div className="grid gap-2">
-            <Label htmlFor={field.name}>{t(label)}</Label>
+          <div className={cn('grid content-start gap-2', className)}>
+            <Label htmlFor={field.name} className={labelClassName}>
+              {labelText}
+            </Label>
             <Input
               id={field.name}
               name={field.name}
@@ -287,6 +322,43 @@ function TextAreaField({
   )
 }
 
+// The whole membres inférieurs card is one Droite | Gauche comparison table:
+// pressures, the calculated IPS and the six artery spectres all sit on the same
+// three columns (measure — droite — gauche), so the two values the doctor
+// actually compares are always side by side on one line. Below `sm` the grid
+// collapses to a single column and each control shows its full label instead.
+const MI_MATRIX_GRID =
+  'grid gap-x-4 sm:grid-cols-[minmax(8rem,1.25fr)_minmax(0,1fr)_minmax(0,1fr)]'
+const MI_HEAD_CELL =
+  'hidden px-2 pb-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase sm:block'
+const MI_ROW_LABEL =
+  'hidden min-w-0 items-center border-t px-2 py-2.5 text-sm font-medium sm:flex'
+const MI_CELL = 'min-w-0 border-t px-2 py-2.5'
+// A continuous faint band down the Gauche column: laterality is the error this
+// form has to make impossible, and a tint reads faster than a repeated word.
+const MI_SIDE_TINT: Record<MiSide, string> = {
+  droite: '',
+  gauche: 'bg-muted/40',
+}
+const MI_IPS_FIELD_KEYS: Record<MiSide, 'mi_ips_droit' | 'mi_ips_gauche'> = {
+  droite: 'mi_ips_droit',
+  gauche: 'mi_ips_gauche',
+}
+
+function MiMatrixHead() {
+  const { t } = useTranslation()
+  return (
+    <>
+      <div className={MI_HEAD_CELL} />
+      {MI_SIDES.map((side) => (
+        <div key={side} className={cn(MI_HEAD_CELL, MI_SIDE_TINT[side])}>
+          {t(MI_SIDE_LABELS[side])}
+        </div>
+      ))}
+    </>
+  )
+}
+
 function IpsPreview({ form }: { form: ReportBuilderFormApi }) {
   const { t } = useTranslation()
   return (
@@ -301,27 +373,29 @@ function IpsPreview({ form }: { form: ReportBuilderFormApi }) {
       }
     >
       {([chevilleDroite, chevilleGauche, brasDroit, brasGauche]) => {
-        const ipsDroit = computeIpsPreview(
-          chevilleDroite,
-          brasDroit,
-          brasGauche,
-        )
-        const ipsGauche = computeIpsPreview(
-          chevilleGauche,
-          brasDroit,
-          brasGauche,
-        )
+        const ips: Record<MiSide, number | null> = {
+          droite: computeIpsPreview(chevilleDroite, brasDroit, brasGauche),
+          gauche: computeIpsPreview(chevilleGauche, brasDroit, brasGauche),
+        }
         return (
-          <div className="grid gap-1 rounded-md bg-muted p-3 text-sm sm:grid-cols-2">
-            <p>
-              {t(REPORT_FIELD_LABELS.mi_ips_droit)} :{' '}
-              <span className="font-semibold">{ipsDroit ?? '—'}</span>
-            </p>
-            <p>
-              {t(REPORT_FIELD_LABELS.mi_ips_gauche)} :{' '}
-              <span className="font-semibold">{ipsGauche ?? '—'}</span>
-            </p>
-          </div>
+          <>
+            <div className={cn(MI_ROW_LABEL, 'font-semibold')}>
+              {t('IPS (calculé)')}
+            </div>
+            {MI_SIDES.map((side) => (
+              <p
+                key={side}
+                className={cn(MI_CELL, MI_SIDE_TINT[side], 'text-sm')}
+              >
+                <span className="sm:sr-only">
+                  {t(REPORT_FIELD_LABELS[MI_IPS_FIELD_KEYS[side]])} :{' '}
+                </span>
+                <span className="text-base font-semibold tabular-nums">
+                  {ips[side] ?? '—'}
+                </span>
+              </p>
+            ))}
+          </>
         )
       }}
     </form.Subscribe>
@@ -535,51 +609,103 @@ function ReportBuilderView({
               {t(REPORT_SECTION_LABELS.membres_inferieurs)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <PressureField
-                form={form}
-                name="mi_pression_cheville_droite"
-                label={REPORT_FIELD_LABELS.mi_pression_cheville_droite}
-              />
-              <PressureField
-                form={form}
-                name="mi_pression_cheville_gauche"
-                label={REPORT_FIELD_LABELS.mi_pression_cheville_gauche}
-              />
-              <PressureField
-                form={form}
-                name="mi_pression_bras_droit"
-                label={REPORT_FIELD_LABELS.mi_pression_bras_droit}
-              />
-              <PressureField
-                form={form}
-                name="mi_pression_bras_gauche"
-                label={REPORT_FIELD_LABELS.mi_pression_bras_gauche}
-              />
-            </div>
-            <IpsPreview form={form} />
-            {MI_SIDES.map((side) => (
-              <div key={side} className="grid gap-3">
-                <h3 className="text-sm font-semibold">{t(MI_SIDE_LABELS[side])}</h3>
+          <CardContent className="space-y-6">
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">
+                {t('Pressions systoliques')}
+              </h3>
+              <div className={MI_MATRIX_GRID}>
+                <MiMatrixHead />
+                <div className={MI_ROW_LABEL}>{t('Cheville (mmHg)')}</div>
+                <PressureField
+                  form={form}
+                  name="mi_pression_cheville_droite"
+                  label={REPORT_FIELD_LABELS.mi_pression_cheville_droite}
+                  className={cn(MI_CELL, MI_SIDE_TINT.droite)}
+                  labelClassName="sm:sr-only"
+                />
+                <PressureField
+                  form={form}
+                  name="mi_pression_cheville_gauche"
+                  label={REPORT_FIELD_LABELS.mi_pression_cheville_gauche}
+                  className={cn(MI_CELL, MI_SIDE_TINT.gauche)}
+                  labelClassName="sm:sr-only"
+                />
+                <div className={MI_ROW_LABEL}>{t('Bras (mmHg)')}</div>
+                <PressureField
+                  form={form}
+                  name="mi_pression_bras_droit"
+                  label={REPORT_FIELD_LABELS.mi_pression_bras_droit}
+                  className={cn(MI_CELL, MI_SIDE_TINT.droite)}
+                  labelClassName="sm:sr-only"
+                />
+                <PressureField
+                  form={form}
+                  name="mi_pression_bras_gauche"
+                  label={REPORT_FIELD_LABELS.mi_pression_bras_gauche}
+                  className={cn(MI_CELL, MI_SIDE_TINT.gauche)}
+                  labelClassName="sm:sr-only"
+                />
+                <IpsPreview form={form} />
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">
+                {t('Spectre par artère')}
+              </h3>
+              <div className={MI_MATRIX_GRID}>
+                <MiMatrixHead />
                 {MI_ARTERY_KEYS.map((artery) => (
-                  <div key={artery} className="grid gap-4 sm:grid-cols-2">
-                    <SpectreField
-                      form={form}
-                      name={arterySpectreKey(side, artery)}
-                      label={MI_ARTERY_LABELS[artery]}
-                    />
-                    {artery === 'afc' && (
-                      <NumberField
+                  <Fragment key={artery}>
+                    <div className={MI_ROW_LABEL}>
+                      {t(MI_ARTERY_LABELS[artery])}
+                    </div>
+                    {MI_SIDES.map((side) => (
+                      <SpectreField
+                        key={side}
                         form={form}
-                        name={arteryVsmKey(side)}
-                        label="VSM (cm/s)"
+                        name={arterySpectreKey(side, artery)}
+                        label={[
+                          MI_ARTERY_LABELS[artery],
+                          MI_SIDE_LABELS[side],
+                          'Spectre',
+                        ]}
+                        className={cn(MI_CELL, MI_SIDE_TINT[side])}
+                        labelClassName="sm:sr-only"
                       />
+                    ))}
+                    {artery === 'afc' && (
+                      <>
+                        <div
+                          className={cn(
+                            MI_ROW_LABEL,
+                            'text-muted-foreground sm:border-t-0 sm:pt-0 sm:pl-6',
+                          )}
+                        >
+                          {t('VSM (cm/s)')}
+                        </div>
+                        {MI_SIDES.map((side) => (
+                          <NumberField
+                            key={side}
+                            form={form}
+                            name={arteryVsmKey(side)}
+                            label={['VSM à l’AFC (cm/s)', MI_SIDE_LABELS[side]]}
+                            className={cn(
+                              MI_CELL,
+                              MI_SIDE_TINT[side],
+                              'sm:border-t-0 sm:pt-0',
+                            )}
+                            labelClassName="sm:sr-only"
+                          />
+                        ))}
+                      </>
                     )}
-                  </div>
+                  </Fragment>
                 ))}
               </div>
-            ))}
+            </section>
+
             <TextAreaField
               form={form}
               name="mi_findings_text"

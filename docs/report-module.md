@@ -446,6 +446,36 @@ scope here, per the 2026-08-31 note.
   static `MI_REFERENCE_NOTE`, even though the note now partly restates the
   structured fields (confirmed acceptable with the doctor 2026-09-01).
 
+## REVISION 2026-09-02 — membres inférieurs card relaid out as a Droite/Gauche matrix
+
+Presentation only — no form-state key, zod rule, `arteresPayload`, API payload
+or validation changed. Supersedes the "Droite sub-block / Gauche sub-block"
+bullet in the revision above, and the 2026-08-31 note that the form groups
+fields by type rather than by side.
+
+- **One three-column grid for the whole card**: `mesure | Droite | Gauche`,
+  shared by the systolic pressures, the calculated IPS row and the six artery
+  spectre rows (`MI_MATRIX_GRID`/`MI_HEAD_CELL`/`MI_ROW_LABEL`/`MI_CELL` in
+  `ReportBuilder.tsx`). The doctor reads limb arterial disease by comparing the
+  same artery left vs right, so the two values he compares now sit on one line
+  instead of two blocks a scroll apart. It also fills the width that the old
+  `sm:grid-cols-2` artery rows wasted on five of six rows (only AFC has a VSM).
+- **VSM stays AFC-only** and now hangs as an unruled sub-row directly under the
+  AFC row, one input per side in the same columns (`mi_droite_afc_vsm` /
+  `mi_gauche_afc_vsm`, unchanged keys).
+- **Laterality cue**: the Gauche column carries a continuous `bg-muted/40` band
+  from its header down through every row.
+- **Accessible names**: the artery name and the side live in the row/column
+  headers, so every control keeps a `<Label htmlFor>` that is `sm:sr-only` and
+  spells the whole thing out — "Artère poplitée — Gauche — Spectre",
+  "VSM à l’AFC (cm/s) — Droite", the full `REPORT_FIELD_LABELS` string for the
+  pressures. The field components take `label: string | Array<string>`
+  (`useFieldLabel` joins the parts with " — ", each part still passed through
+  `t()`).
+- **Below `sm` the grid collapses to one column**, the headers and row labels
+  hide, and those same labels become visible above each control — so the narrow
+  layout is a plain labelled stack, never a squeezed two-column table.
+
 ## IPS (Index de Pression Systolique / ABI) — formula confirmed 2026-08-21
 
 Doctor confirmed directly: "les deux chevilles et deux bras, [s]ystolique (pas
