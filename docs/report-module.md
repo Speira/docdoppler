@@ -325,7 +325,9 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
   separators gets " mm", anything already carrying a unit is left alone — which
   is what stops legacy "22 mm" printing as "22 mm mm".
 - **Paired lines, to cut vertical space** (2026-09-02): the letterhead's
-  professional-membership line, RPPS and Adeli share one line joined by " — ",
+  professional-membership line, RPPS and Adeli share one line joined by
+  `CREDENTIAL_SEPARATOR` (an em dash flanked by U+2003 em spaces, itself
+  flanked by ASCII spaces so `wrapText` can still break between items),
   with unset parts dropping out rather than leaving a dangling separator;
   likewise date of birth with sex in the identity block, and the exam date with
   the doctor under "Compte rendu". Four lines saved. Those last two pairs use

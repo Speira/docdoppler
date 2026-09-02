@@ -50,6 +50,11 @@ const NOTE_LINE_HEIGHT = 11;
 // A real list bullet rather than a hyphen. Liberation Sans carries U+2022,
 // so this is safe with the embedded font (a StandardFont would not be).
 const BULLET = "•";
+// The letterhead credentials read as one run-on line, so the gaps between
+// membership / RPPS / Adeli carry em spaces (U+2003) for real separation.
+// The flanking ASCII spaces matter: wrapText splits on " ", so they keep the
+// line breakable between items instead of at an arbitrary character.
+const CREDENTIAL_SEPARATOR = " \u2003—\u2003 ";
 // Label/value pairs that share a line put the second field in a fixed
 // column, so "Sexe" and "Médecin" align under each other and each pair
 // gets real breathing room instead of a cramped separator.
@@ -424,7 +429,7 @@ export async function buildReportPdf(
     const addressBottom = y - addressLines.length * LINE_HEIGHT;
     const width =
       leftY > addressBottom ? LETTERHEAD_COLUMN_WIDTH : PAGE_WIDTH - MARGIN * 2;
-    for (const line of wrapText(measure9, width, credentials.join(" — "))) {
+    for (const line of wrapText(measure9, width, credentials.join(CREDENTIAL_SEPARATOR))) {
       drawLeft(line, 9);
     }
   }
