@@ -33,7 +33,7 @@ const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
 const MARGIN = 50;
 const LINE_HEIGHT = 16;
-const ADDRESS_COLUMN_WIDTH = 200;
+const ADDRESS_COLUMN_WIDTH = 230;
 // The letterhead's left block must stop short of the right-aligned address.
 const LETTERHEAD_COLUMN_WIDTH = PAGE_WIDTH - MARGIN * 2 - ADDRESS_COLUMN_WIDTH - 20;
 // Submenu indentation: level-1 (e.g. "Bilan vasculaire", "TSA") indents once,
@@ -52,6 +52,9 @@ const NOTE_LINE_HEIGHT = 11;
 // One size for every top-level section title and one for every subsection,
 // so they cannot drift apart again: "Compte rendu" used to be 11 while its
 // neighbours were 12.
+// The letterhead reads as one block: doctor name, activity line, credentials
+// and address all share this size, none of them bold.
+const LETTERHEAD_SIZE = 10;
 const SECTION_HEADING_SIZE = 11;
 const SUBSECTION_HEADING_SIZE = 11;
 const BULLET = "•";
@@ -408,14 +411,19 @@ export async function buildReportPdf(
   };
 
   if (settings.doctor_name) {
-    drawLeft(settings.doctor_name, 16, true);
-    drawLeft("Écho-Doppler Vasculaire", 10);
+    drawLeft(settings.doctor_name, LETTERHEAD_SIZE);
+    drawLeft("Écho-Doppler Vasculaire", LETTERHEAD_SIZE);
   } else {
-    drawLeft("Cabinet d'écho-Doppler vasculaire", 16, true);
+    drawLeft("Cabinet d'écho-Doppler vasculaire", LETTERHEAD_SIZE);
   }
-  const measure9 = (line: string) => font.widthOfTextAtSize(line, 9);
+  const measureLetterhead = (line: string) =>
+    font.widthOfTextAtSize(line, LETTERHEAD_SIZE);
   const addressLines = settings.address
-    ? wrapText(measure9, ADDRESS_COLUMN_WIDTH, settings.address)
+    ? wrapText(
+        measureLetterhead,
+        ADDRESS_COLUMN_WIDTH,
+        `Adresse : ${settings.address}`,
+      )
     : [];
 
   // Membership, RPPS and Adeli share one line to keep the letterhead compact.
@@ -434,14 +442,18 @@ export async function buildReportPdf(
     const addressBottom = y - addressLines.length * LINE_HEIGHT;
     const width =
       leftY > addressBottom ? LETTERHEAD_COLUMN_WIDTH : PAGE_WIDTH - MARGIN * 2;
-    for (const line of wrapText(measure9, width, credentials.join(CREDENTIAL_SEPARATOR))) {
-      drawLeft(line, 9);
+    for (const line of wrapText(
+      measureLetterhead,
+      width,
+      credentials.join(CREDENTIAL_SEPARATOR),
+    )) {
+      drawLeft(line, LETTERHEAD_SIZE);
     }
   }
 
   if (addressLines.length > 0) {
     for (const line of addressLines) {
-      drawRight(line, 9);
+      drawRight(line, LETTERHEAD_SIZE);
     }
   }
 
@@ -489,7 +501,7 @@ export async function buildReportPdf(
     activeRiskFactors.length === 0
       ? "Aucun antécédent renseigné."
       : activeRiskFactors.map((key) => RISK_FACTOR_LABELS[key]).join(", ");
-  drawWrapped(`Bilan vasculaire : ${riskFactorList}`, 10, INDENT_1);
+  drawWrapped(`Bilan vasculaire : ${riskFactorList}`, 10);
   y -= LINE_HEIGHT / 2;
 
   drawHeading("TECHNIQUE", SECTION_HEADING_SIZE);

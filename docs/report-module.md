@@ -335,6 +335,16 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
   "Sexe" and "Médecin" align under each other — an em-dash separator read as
   cramped. It falls back to a spaced " — " if the first field is ever wide
   enough to reach that column (a legacy non-ISO `exam_date` printed raw, say).
+- **Letterhead is one uniform block** (2026-09-02): the doctor name, the
+  "Écho-Doppler Vasculaire" activity line, the credentials line and the address
+  all render at `LETTERHEAD_SIZE` (10) with **no bold** — the name was 16pt bold
+  and the rest 9-10pt. The address is now prefixed `Adresse : `, and
+  `ADDRESS_COLUMN_WIDTH` widened to 230 so the label still fits on one line.
+  Note this leaves the letterhead deliberately flat: the doctor's name no longer
+  stands out typographically.
+- **"Bilan vasculaire" is not a subsection.** It renders flush with the
+  INDICATION body (no `INDENT_1`), because it is that section's content rather
+  than a nested heading — this supersedes the 2026-09-01 note that indented it.
 - **One constant per heading level** (2026-09-02): `SECTION_HEADING_SIZE` for
   every top-level title (Identité du patient, Compte rendu, INDICATION,
   TECHNIQUE, RÉSULTATS, CONCLUSION) and `SUBSECTION_HEADING_SIZE` for the

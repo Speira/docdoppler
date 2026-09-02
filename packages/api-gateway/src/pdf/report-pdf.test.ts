@@ -252,7 +252,7 @@ describe("buildReportPdf", () => {
     expect(parsed.text).toContain("Membre de la société française de radiologie");
     expect(parsed.text).toContain("12345678901");
     expect(parsed.text).toContain("939912345");
-    expect(parsed.text).toContain("6 avenue Yuri Gagarine 93270 Sevran");
+    expect(parsed.text).toContain("Adresse : 6 avenue Yuri Gagarine 93270 Sevran");
   });
 
   it("builds the TECHNIQUE paragraph from the Mindray service date and characteristics", async () => {
