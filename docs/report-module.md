@@ -334,6 +334,15 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
   `LETTERHEAD_COLUMN_WIDTH` only when the address actually wraps far enough
   down to reach it. Reserving the address column on every row wrapped the line
   early and stranded "RPPS :" from its number.
+- **Keep-with-next on section headers** (2026-09-02): `drawHeading` breaks the
+  page *before* a header that would otherwise land within two lines of the
+  bottom, so a header never prints with its body overleaf. Found in a real
+  report (JOHNSON Emily, 2026-08-25) that spent an entire A4 sheet on the words
+  "Non renseignée." under an orphaned CONCLUSION.
+- **The 8pt "Repères" notes use their own 11pt leading** (`NOTE_LINE_HEIGHT`),
+  not the 10pt body's 16pt. They were effectively double-spaced, which cost
+  several lines per report. Together with the paired header lines above, the
+  reference report went from two pages to one.
 - **Empty regions are omitted entirely** — header, fields and the "Repères"
   note. A TSA-only exam no longer prints Aorte/MI boilerplate. If all three
   regions are empty, RÉSULTATS prints "Aucun résultat renseigné.". The

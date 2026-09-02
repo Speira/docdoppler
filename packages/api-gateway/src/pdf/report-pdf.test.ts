@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractText, getDocumentProxy } from "unpdf";
 import { PDFDocument } from "pdf-lib";
+import { MI_ARTERY_KEYS } from "@speira-docdoppler/shared-labels";
 import {
   buildReportPdf,
   buildReportPdfFilename,
@@ -466,8 +467,8 @@ describe("buildReportPdf", () => {
       undefined,
       makeReport({
         tsa_imt_droit: 0.62,
-        tsa_findings_text: "Plaque athéromateuse du bulbe carotidien droit. ".repeat(30),
-        conclusion: "Athéromatose polyvasculaire à surveiller. ".repeat(30),
+        tsa_findings_text: "Plaque athéromateuse du bulbe carotidien droit. ".repeat(45),
+        conclusion: "Athéromatose polyvasculaire à surveiller. ".repeat(45),
       }),
       makeSettings(),
     );
@@ -613,6 +614,83 @@ describe("buildReportPdf", () => {
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain("Axe droit calcifié.");
     expect(parsed.text).toContain("médiacalcose");
+  });
+});
+
+describe("section headers stay with their content", () => {
+  // A header alone at the foot of a page, its body overleaf, wastes a whole
+  // sheet. Seen in a real report (JOHNSON Emily, 2026-08-25): "CONCLUSION"
+  // ended page 1 and "Non renseignée." was the only thing on page 2. That
+  // report had all six arteries on both sides, which is what pushes the
+  // header to the boundary — the fixture below reproduces its shape.
+  const SPECTRA = [
+    "diphasique",
+    "monophasique",
+    "monophasique",
+    "monophasique",
+    "triphasique",
+    "triphasique",
+  ];
+
+  function fullSide(vsm: number) {
+    return Object.fromEntries(
+      MI_ARTERY_KEYS.map((key, i) => [
+        key,
+        { vsm: key === "afc" ? vsm : null, spectre: SPECTRA[i] },
+      ]),
+    );
+  }
+
+  async function pageIndexes(bytes: Uint8Array, needles: string[]): Promise<number[]> {
+    const pdf = await getDocumentProxy(bytes);
+    const { text } = await extractText(pdf);
+    const pages = (text as unknown as string[]).map((page) =>
+      page.replace(/\s+/g, " "),
+    );
+    return needles.map((needle) => pages.findIndex((page) => page.includes(needle)));
+  }
+
+  it("keeps CONCLUSION on the same page as its body", async () => {
+    // The real report's letterhead carried a membership line and an address,
+    // which push the body down; an emptier letterhead never reaches the
+    // boundary. Sweep the findings length so the break lands in many places.
+    const settings = makeSettings({
+      doctor_name: "Dr. PEMBELE Adolphe",
+      professional_membership: "Membre de la société française de radiologie",
+      rpps_number: "XXXX",
+      adeli_number: "XXXX",
+      address: "6 avenue Yuri Gagarine 93270 Sevran",
+      mindray_characteristics: "Mindray",
+      mindray_service_date: "2026-08-24",
+    });
+    for (let filler = 0; filler <= 24; filler += 1) {
+      const report = makeReport({
+        tsa_imt_droit: 50,
+        tsa_imt_gauche: 50,
+        tsa_aci_acc_ratio_droit: 50,
+        tsa_aci_acc_ratio_gauche: 50,
+        aorte_diametre: "50",
+        mi_pression_cheville_droite: 60,
+        mi_pression_cheville_gauche: 60,
+        mi_pression_bras_droit: 100,
+        mi_pression_bras_gauche: 100,
+        mi_ips_droit: 0.6,
+        mi_ips_gauche: 0.6,
+        mi_findings_text: Array.from(
+          { length: filler },
+          (_, i) => `Constatation ${i}.`,
+        ).join(" "),
+        conclusion: "",
+        arteres: { droite: fullSide(40), gauche: fullSide(45) },
+      } as Partial<ReportWithArteries>);
+      const [header, body] = await pageIndexes(
+        await buildReportPdf(makePatient(), undefined, report, settings),
+        ["CONCLUSION", "Non renseignée."],
+      );
+      expect(header, `CONCLUSION missing (filler ${filler})`).toBeGreaterThanOrEqual(0);
+      expect(body, `body missing (filler ${filler})`).toBeGreaterThanOrEqual(0);
+      expect(body, `CONCLUSION stranded from its body (filler ${filler})`).toBe(header);
+    }
   });
 });
 

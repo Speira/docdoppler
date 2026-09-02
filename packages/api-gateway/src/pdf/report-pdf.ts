@@ -44,6 +44,9 @@ const INDENT_3 = 42;
 const FOOTER_SIZE = 8;
 const FOOTER_BASELINE = 30; // inside the bottom margin, below the content area
 const CONTINUATION_HEADER_SIZE = 8;
+// The 8pt "Repères" notes were set at the 10pt body's 16pt leading, which
+// double-spaced them and wasted several lines per report.
+const NOTE_LINE_HEIGHT = 11;
 
 // Liberation Sans is metrically compatible with Helvetica (so the column
 // widths above still hold) but, unlike pdf-lib's built-in StandardFonts, it is
@@ -244,7 +247,25 @@ export async function buildReportPdf(
     }
   };
 
-  const draw = (text: string, size: number, useBold = false, indent = 0) => {
+  // Keep-with-next: a section header printed at the foot of a page, with its
+  // body overleaf, wastes a whole sheet — a real report spent an entire A4 on
+  // the words "Non renseignée.". Break before the header instead, so it
+  // travels with the first lines of what it introduces.
+  const KEEP_WITH_HEADER_LINES = 2;
+  const drawHeading = (text: string, size: number, indent = 0) => {
+    if (y - (KEEP_WITH_HEADER_LINES + 1) * LINE_HEIGHT < MARGIN) {
+      startContinuationPage();
+    }
+    draw(text, size, true, indent);
+  };
+
+  const draw = (
+    text: string,
+    size: number,
+    useBold = false,
+    indent = 0,
+    lineHeight = LINE_HEIGHT,
+  ) => {
     ensureSpace();
     page.drawText(text, {
       x: MARGIN + indent,
@@ -252,17 +273,22 @@ export async function buildReportPdf(
       size,
       font: useBold ? boldFont : font,
     });
-    y -= LINE_HEIGHT;
+    y -= lineHeight;
   };
 
-  const drawWrapped = (text: string, size: number, indent = 0) => {
+  const drawWrapped = (
+    text: string,
+    size: number,
+    indent = 0,
+    lineHeight = LINE_HEIGHT,
+  ) => {
     const measure = (line: string) => font.widthOfTextAtSize(line, size);
     for (const line of wrapText(
       measure,
       PAGE_WIDTH - MARGIN * 2 - indent,
       text,
     )) {
-      draw(line, size, false, indent);
+      draw(line, size, false, indent, lineHeight);
     }
   };
 
@@ -394,7 +420,7 @@ export async function buildReportPdf(
   });
   y -= LINE_HEIGHT;
 
-  draw("Identité du patient", 12, true);
+  drawHeading("Identité du patient", 12);
   draw(patientIdentity, 10);
   draw(
     `Date de naissance : ${formatDateFR(patient.dob)}` +
@@ -406,10 +432,9 @@ export async function buildReportPdf(
   drawField("Médecin correspondant", report.correspondant_dossier || null);
   y -= LINE_HEIGHT / 2;
 
-  draw(
+  drawHeading(
     "Compte rendu : Echodoppler des TSA, de la aorte abdominal, et des membres inférieurs et IPS",
     11,
-    true,
   );
   draw(
     `Date de l'examen : ${formatDateFR(report.exam_date)} — Médecin : ${report.doctor_name}`,
@@ -417,7 +442,7 @@ export async function buildReportPdf(
   );
   y -= LINE_HEIGHT / 2;
 
-  draw("INDICATION", 12, true);
+  drawHeading("INDICATION", 12);
   if (report.indication.trim().length > 0) {
     drawWrapped(report.indication, 10);
   }
@@ -433,11 +458,11 @@ export async function buildReportPdf(
   drawWrapped(`Bilan vasculaire : ${riskFactorList}`, 10, INDENT_1);
   y -= LINE_HEIGHT / 2;
 
-  draw("TECHNIQUE", 12, true);
+  drawHeading("TECHNIQUE", 12);
   drawWrapped(buildTechniqueParagraph(settings), 10);
   y -= LINE_HEIGHT / 2;
 
-  draw("RÉSULTATS", 12, true);
+  drawHeading("RÉSULTATS", 12);
 
   // A region the doctor did not examine is omitted entirely — header, fields
   // and its "Repères" boilerplate — so the report only carries what was done.
@@ -473,7 +498,7 @@ export async function buildReportPdf(
   }
 
   if (tsaHasContent) {
-    draw(REPORT_SECTION_LABELS.tsa, 11, true, INDENT_1);
+    drawHeading(REPORT_SECTION_LABELS.tsa, 11, INDENT_1);
     if (tsaHasSides) {
       drawSideRow("Droite", [
         sidePart("IMT", report.tsa_imt_droit, " mm"),
@@ -487,12 +512,12 @@ export async function buildReportPdf(
     if (report.tsa_findings_text.trim().length > 0) {
       drawWrapped(report.tsa_findings_text, 10, INDENT_1);
     }
-    drawWrapped(TSA_REFERENCE_NOTE, 8, INDENT_1);
+    drawWrapped(TSA_REFERENCE_NOTE, 8, INDENT_1, NOTE_LINE_HEIGHT);
     y -= LINE_HEIGHT / 2;
   }
 
   if (aorteHasContent) {
-    draw(REPORT_SECTION_LABELS.aorte_abdominale, 11, true, INDENT_1);
+    drawHeading(REPORT_SECTION_LABELS.aorte_abdominale, 11, INDENT_1);
     // The band is derived from the measurement itself, so the aorta reads as a
     // single line: no "Anévrisme : Oui/Non" tick and no separate aneurysm
     // diameter — when there is an aneurysm, this measurement *is* its diameter.
@@ -506,12 +531,12 @@ export async function buildReportPdf(
     if (report.aorte_findings_text.trim().length > 0) {
       drawWrapped(report.aorte_findings_text, 10, INDENT_1);
     }
-    drawWrapped(AORTE_REFERENCE_NOTE, 8, INDENT_1);
+    drawWrapped(AORTE_REFERENCE_NOTE, 8, INDENT_1, NOTE_LINE_HEIGHT);
     y -= LINE_HEIGHT / 2;
   }
 
   if (miHasContent) {
-    draw(REPORT_SECTION_LABELS.membres_inferieurs, 11, true, INDENT_1);
+    drawHeading(REPORT_SECTION_LABELS.membres_inferieurs, 11, INDENT_1);
     for (const side of MI_SIDES) {
       if (!sideHasContent(side)) continue;
       // Unlike drawSideRow (still used by TSA), this header must print even
@@ -538,11 +563,11 @@ export async function buildReportPdf(
     if (report.mi_findings_text.trim().length > 0) {
       drawWrapped(report.mi_findings_text, 10, INDENT_1);
     }
-    drawWrapped(MI_REFERENCE_NOTE, 8, INDENT_1);
+    drawWrapped(MI_REFERENCE_NOTE, 8, INDENT_1, NOTE_LINE_HEIGHT);
     y -= LINE_HEIGHT / 2;
   }
 
-  draw("CONCLUSION", 12, true);
+  drawHeading("CONCLUSION", 12);
   if (report.conclusion.trim().length > 0) {
     drawWrapped(report.conclusion, 10);
   } else {
