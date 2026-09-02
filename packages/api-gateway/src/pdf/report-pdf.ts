@@ -34,6 +34,8 @@ const PAGE_HEIGHT = 841.89;
 const MARGIN = 50;
 const LINE_HEIGHT = 16;
 const ADDRESS_COLUMN_WIDTH = 200;
+// The letterhead's left block must stop short of the right-aligned address.
+const LETTERHEAD_COLUMN_WIDTH = PAGE_WIDTH - MARGIN * 2 - ADDRESS_COLUMN_WIDTH - 20;
 // Submenu indentation: level-1 (e.g. "Bilan vasculaire", "TSA") indents once,
 // level-2 (e.g. "Droite"/"Gauche" under TSA) indents twice as much.
 const INDENT_1 = 14;
@@ -352,18 +354,34 @@ export async function buildReportPdf(
   } else {
     drawLeft("Cabinet d'écho-Doppler vasculaire", 16, true);
   }
-  if (settings.professional_membership)
-    drawLeft(settings.professional_membership, 9);
-  if (settings.rpps_number) drawLeft(`RPPS : ${settings.rpps_number}`, 9);
-  if (settings.adeli_number) drawLeft(`N° Adeli : ${settings.adeli_number}`, 9);
+  const measure9 = (line: string) => font.widthOfTextAtSize(line, 9);
+  const addressLines = settings.address
+    ? wrapText(measure9, ADDRESS_COLUMN_WIDTH, settings.address)
+    : [];
 
-  if (settings.address) {
-    const measure = (line: string) => font.widthOfTextAtSize(line, 9);
-    for (const line of wrapText(
-      measure,
-      ADDRESS_COLUMN_WIDTH,
-      settings.address,
-    )) {
+  // Membership, RPPS and Adeli share one line to keep the letterhead compact.
+  // Any of the three may be unset, so empties drop out rather than leaving a
+  // dangling separator.
+  const credentials = [
+    settings.professional_membership,
+    settings.rpps_number && `RPPS : ${settings.rpps_number}`,
+    settings.adeli_number && `N° Adeli : ${settings.adeli_number}`,
+  ].filter((part): part is string => Boolean(part));
+  if (credentials.length > 0) {
+    // The address is right-aligned from the top, so it only steals width on the
+    // rows it actually occupies. Reserving its column on every row wrapped this
+    // line early and stranded "RPPS :" from its number; only narrow it when the
+    // address really does reach this far down.
+    const addressBottom = y - addressLines.length * LINE_HEIGHT;
+    const width =
+      leftY > addressBottom ? LETTERHEAD_COLUMN_WIDTH : PAGE_WIDTH - MARGIN * 2;
+    for (const line of wrapText(measure9, width, credentials.join(" — "))) {
+      drawLeft(line, 9);
+    }
+  }
+
+  if (addressLines.length > 0) {
+    for (const line of addressLines) {
       drawRight(line, 9);
     }
   }
@@ -378,8 +396,11 @@ export async function buildReportPdf(
 
   draw("Identité du patient", 12, true);
   draw(patientIdentity, 10);
-  draw(`Date de naissance : ${formatDateFR(patient.dob)}`, 10);
-  draw(`Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`, 10);
+  draw(
+    `Date de naissance : ${formatDateFR(patient.dob)}` +
+      ` — Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`,
+    10,
+  );
   // The referring physician belongs with the patient's identity, not with the
   // exam metadata. Still backed by `reports.correspondant_dossier`.
   drawField("Médecin correspondant", report.correspondant_dossier || null);
@@ -390,8 +411,10 @@ export async function buildReportPdf(
     11,
     true,
   );
-  draw(`Date de l'examen : ${formatDateFR(report.exam_date)}`, 10);
-  draw(`Médecin : ${report.doctor_name}`, 10);
+  draw(
+    `Date de l'examen : ${formatDateFR(report.exam_date)} — Médecin : ${report.doctor_name}`,
+    10,
+  );
   y -= LINE_HEIGHT / 2;
 
   draw("INDICATION", 12, true);

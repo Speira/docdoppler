@@ -324,6 +324,16 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
   `formatAorteDiametre` (exported, unit-tested): a value that is only digits /
   separators gets " mm", anything already carrying a unit is left alone — which
   is what stops legacy "22 mm" printing as "22 mm mm".
+- **Paired lines, to cut vertical space** (2026-09-02): the letterhead's
+  professional-membership line, RPPS and Adeli share one line joined by " — ",
+  with unset parts dropping out rather than leaving a dangling separator;
+  likewise `Date de naissance … — Sexe …` in the identity block and
+  `Date de l'examen … — Médecin …` under "Compte rendu". Four lines saved.
+  The credentials line normally wraps at the full content width, because the
+  right-aligned address only occupies the top row — it is narrowed to
+  `LETTERHEAD_COLUMN_WIDTH` only when the address actually wraps far enough
+  down to reach it. Reserving the address column on every row wrapped the line
+  early and stranded "RPPS :" from its number.
 - **Empty regions are omitted entirely** — header, fields and the "Repères"
   note. A TSA-only exam no longer prints Aorte/MI boilerplate. If all three
   regions are empty, RÉSULTATS prints "Aucun résultat renseigné.". The

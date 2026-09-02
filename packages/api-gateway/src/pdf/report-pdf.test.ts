@@ -152,6 +152,44 @@ describe("buildReportPdf", () => {
     );
   });
 
+  it("puts the membership line, RPPS and Adeli on one letterhead line", async () => {
+    const settings = makeSettings({
+      doctor_name: "Dr Pembele",
+      professional_membership: "Membre de la société française de radiologie",
+      rpps_number: "12345678901",
+      adeli_number: "939912345",
+    });
+    const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), settings);
+    const parsed = await parsePdf(bytes);
+    expect(parsed.text).toContain(
+      "Membre de la société française de radiologie — RPPS : 12345678901 — N° Adeli : 939912345",
+    );
+  });
+
+  it("omits the separator for letterhead identifiers that are not filled in", async () => {
+    const settings = makeSettings({ doctor_name: "Dr Pembele", rpps_number: "12345678901" });
+    const parsed = await parsePdf(
+      await buildReportPdf(makePatient(), undefined, makeReport(), settings),
+    );
+    expect(parsed.text).toContain("RPPS : 12345678901");
+    expect(parsed.text).not.toContain("—  ");
+    expect(parsed.text).not.toContain(" — RPPS");
+  });
+
+  it("puts the date of birth and the sex on one line", async () => {
+    const parsed = await parsePdf(
+      await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings()),
+    );
+    expect(parsed.text).toContain("Date de naissance : 12/03/1958 — Sexe : Masculin");
+  });
+
+  it("puts the exam date and the doctor on one line", async () => {
+    const parsed = await parsePdf(
+      await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings()),
+    );
+    expect(parsed.text).toContain("Date de l'examen : 13/08/2026 — Médecin : Dr. Martin");
+  });
+
   it("includes the four top-level section headers", async () => {
     const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
