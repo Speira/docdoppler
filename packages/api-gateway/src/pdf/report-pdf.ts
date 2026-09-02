@@ -49,6 +49,11 @@ const CONTINUATION_HEADER_SIZE = 8;
 const NOTE_LINE_HEIGHT = 11;
 // A real list bullet rather than a hyphen. Liberation Sans carries U+2022,
 // so this is safe with the embedded font (a StandardFont would not be).
+// One size for every top-level section title and one for every subsection,
+// so they cannot drift apart again: "Compte rendu" used to be 11 while its
+// neighbours were 12.
+const SECTION_HEADING_SIZE = 11;
+const SUBSECTION_HEADING_SIZE = 11;
 const BULLET = "•";
 // The letterhead credentials read as one run-on line, so the gaps between
 // membership / RPPS / Adeli carry em spaces (U+2003) for real separation.
@@ -448,7 +453,7 @@ export async function buildReportPdf(
   });
   y -= LINE_HEIGHT;
 
-  drawHeading("Identité du patient", 12);
+  drawHeading("Identité du patient", SECTION_HEADING_SIZE);
   draw(patientIdentity, 10);
   drawPair(
     `Date de naissance : ${formatDateFR(patient.dob)}`,
@@ -462,7 +467,7 @@ export async function buildReportPdf(
 
   drawHeading(
     "Compte rendu : Echodoppler des TSA, de la aorte abdominal, et des membres inférieurs et IPS",
-    11,
+    SECTION_HEADING_SIZE,
   );
   drawPair(
     `Date de l'examen : ${formatDateFR(report.exam_date)}`,
@@ -471,7 +476,7 @@ export async function buildReportPdf(
   );
   y -= LINE_HEIGHT / 2;
 
-  drawHeading("INDICATION", 12);
+  drawHeading("INDICATION", SECTION_HEADING_SIZE);
   if (report.indication.trim().length > 0) {
     drawWrapped(report.indication, 10);
   }
@@ -487,11 +492,11 @@ export async function buildReportPdf(
   drawWrapped(`Bilan vasculaire : ${riskFactorList}`, 10, INDENT_1);
   y -= LINE_HEIGHT / 2;
 
-  drawHeading("TECHNIQUE", 12);
+  drawHeading("TECHNIQUE", SECTION_HEADING_SIZE);
   drawWrapped(buildTechniqueParagraph(settings), 10);
   y -= LINE_HEIGHT / 2;
 
-  drawHeading("RÉSULTATS", 12);
+  drawHeading("RÉSULTATS", SECTION_HEADING_SIZE);
 
   // A region the doctor did not examine is omitted entirely — header, fields
   // and its "Repères" boilerplate — so the report only carries what was done.
@@ -527,7 +532,7 @@ export async function buildReportPdf(
   }
 
   if (tsaHasContent) {
-    drawHeading(REPORT_SECTION_LABELS.tsa, 11, INDENT_1);
+    drawHeading(REPORT_SECTION_LABELS.tsa, SUBSECTION_HEADING_SIZE, INDENT_1);
     if (tsaHasSides) {
       drawSideRow("Droite", [
         sidePart("IMT", report.tsa_imt_droit, " mm"),
@@ -546,7 +551,11 @@ export async function buildReportPdf(
   }
 
   if (aorteHasContent) {
-    drawHeading(REPORT_SECTION_LABELS.aorte_abdominale, 11, INDENT_1);
+    drawHeading(
+      REPORT_SECTION_LABELS.aorte_abdominale,
+      SUBSECTION_HEADING_SIZE,
+      INDENT_1,
+    );
     // The band is derived from the measurement itself, so the aorta reads as a
     // single line: no "Anévrisme : Oui/Non" tick and no separate aneurysm
     // diameter — when there is an aneurysm, this measurement *is* its diameter.
@@ -565,7 +574,11 @@ export async function buildReportPdf(
   }
 
   if (miHasContent) {
-    drawHeading(REPORT_SECTION_LABELS.membres_inferieurs, 11, INDENT_1);
+    drawHeading(
+      REPORT_SECTION_LABELS.membres_inferieurs,
+      SUBSECTION_HEADING_SIZE,
+      INDENT_1,
+    );
     for (const side of MI_SIDES) {
       if (!sideHasContent(side)) continue;
       // Unlike drawSideRow (still used by TSA), this header must print even
@@ -604,7 +617,7 @@ export async function buildReportPdf(
     y -= LINE_HEIGHT / 2;
   }
 
-  drawHeading("CONCLUSION", 12);
+  drawHeading("CONCLUSION", SECTION_HEADING_SIZE);
   if (report.conclusion.trim().length > 0) {
     drawWrapped(report.conclusion, 10);
   } else {

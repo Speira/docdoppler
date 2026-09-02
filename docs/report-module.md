@@ -335,6 +335,13 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
   "Sexe" and "Médecin" align under each other — an em-dash separator read as
   cramped. It falls back to a spaced " — " if the first field is ever wide
   enough to reach that column (a legacy non-ISO `exam_date` printed raw, say).
+- **One constant per heading level** (2026-09-02): `SECTION_HEADING_SIZE` for
+  every top-level title (Identité du patient, Compte rendu, INDICATION,
+  TECHNIQUE, RÉSULTATS, CONCLUSION) and `SUBSECTION_HEADING_SIZE` for the
+  RÉSULTATS subsections. They had drifted — "Compte rendu" was 11 while its
+  neighbours were 12. Both constants are 11 today; the subsections stay legible
+  as a level down through their `INDENT_1` offset and title case against the
+  top level's capitals, not through a size step.
 - **List markers are real bullets** (`BULLET`, U+2022), not hyphens, at both
   the side and artery levels. Safe because the embedded Liberation Sans carries
   the glyph — a pdf-lib StandardFont would not.
