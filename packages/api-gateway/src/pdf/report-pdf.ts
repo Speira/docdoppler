@@ -47,6 +47,13 @@ const CONTINUATION_HEADER_SIZE = 8;
 // The 8pt "Repères" notes were set at the 10pt body's 16pt leading, which
 // double-spaced them and wasted several lines per report.
 const NOTE_LINE_HEIGHT = 11;
+// A real list bullet rather than a hyphen. Liberation Sans carries U+2022,
+// so this is safe with the embedded font (a StandardFont would not be).
+const BULLET = "•";
+// Label/value pairs that share a line put the second field in a fixed
+// column, so "Sexe" and "Médecin" align under each other and each pair
+// gets real breathing room instead of a cramped separator.
+const PAIR_COLUMN = 210;
 
 // Liberation Sans is metrically compatible with Helvetica (so the column
 // widths above still hold) but, unlike pdf-lib's built-in StandardFonts, it is
@@ -301,6 +308,22 @@ export async function buildReportPdf(
     draw(`${label} : ${value}`, 10, false, indent);
   };
 
+  // Two label/value pairs on one line: the second starts at a fixed column so
+  // successive pairs align under each other. If the first value is long enough
+  // to reach that column, fall back to a spaced separator rather than letting
+  // the two collide.
+  const drawPair = (left: string, right: string, size: number) => {
+    const leftWidth = font.widthOfTextAtSize(left, size);
+    if (leftWidth + 12 > PAIR_COLUMN) {
+      draw(`${left}   —   ${right}`, size);
+      return;
+    }
+    ensureSpace();
+    page.drawText(left, { x: MARGIN, y: y - size, size, font });
+    page.drawText(right, { x: MARGIN + PAIR_COLUMN, y: y - size, size, font });
+    y -= LINE_HEIGHT;
+  };
+
   // A side's measurements read as one inline sentence-style row —
   // "- Droite : IMT : 0.62 mm. Ratio ACI/ACC : 1.8" — rather than as a
   // side-by-side column pair. A side with nothing measured prints nothing.
@@ -314,7 +337,7 @@ export async function buildReportPdf(
   const drawSideRow = (side: string, parts: (string | null)[]) => {
     const measured = parts.filter((part): part is string => part !== null);
     if (measured.length === 0) return;
-    drawWrapped(`- ${side} : ${measured.join(". ")}`, 10, INDENT_2);
+    drawWrapped(`${BULLET} ${side} : ${measured.join(". ")}`, 10, INDENT_2);
   };
 
   // pdf-lib draws one font per drawText call, so a line that is part bold and
@@ -422,9 +445,9 @@ export async function buildReportPdf(
 
   drawHeading("Identité du patient", 12);
   draw(patientIdentity, 10);
-  draw(
-    `Date de naissance : ${formatDateFR(patient.dob)}` +
-      ` — Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`,
+  drawPair(
+    `Date de naissance : ${formatDateFR(patient.dob)}`,
+    `Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`,
     10,
   );
   // The referring physician belongs with the patient's identity, not with the
@@ -436,8 +459,9 @@ export async function buildReportPdf(
     "Compte rendu : Echodoppler des TSA, de la aorte abdominal, et des membres inférieurs et IPS",
     11,
   );
-  draw(
-    `Date de l'examen : ${formatDateFR(report.exam_date)} — Médecin : ${report.doctor_name}`,
+  drawPair(
+    `Date de l'examen : ${formatDateFR(report.exam_date)}`,
+    `Médecin : ${report.doctor_name}`,
     10,
   );
   y -= LINE_HEIGHT / 2;
@@ -546,7 +570,11 @@ export async function buildReportPdf(
       // directly under the right-leg heading — the most safety-critical
       // mislabelling this section can produce.
       const ips = sidePart("IPS", ipsBySide[side]);
-      drawWrapped(`- ${MI_SIDE_LABELS[side]} :${ips ? ` ${ips}` : ""}`, 10, INDENT_2);
+      drawWrapped(
+        `${BULLET} ${MI_SIDE_LABELS[side]} :${ips ? ` ${ips}` : ""}`,
+        10,
+        INDENT_2,
+      );
       for (const artery of MI_ARTERY_KEYS) {
         const entry = report.arteres[side]?.[artery];
         if (!entry) continue;
@@ -557,7 +585,11 @@ export async function buildReportPdf(
           flux === null ? null : `Flux : ${flux}`,
         ].filter((part): part is string => part !== null);
         if (parts.length === 0) continue;
-        drawInlineBold(`- ${MI_ARTERY_LABELS[artery]}`, parts.join(". "), INDENT_3);
+        drawInlineBold(
+          `${BULLET} ${MI_ARTERY_LABELS[artery]}`,
+          parts.join(". "),
+          INDENT_3,
+        );
       }
     }
     if (report.mi_findings_text.trim().length > 0) {

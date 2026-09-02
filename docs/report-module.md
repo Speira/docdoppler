@@ -327,8 +327,15 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
 - **Paired lines, to cut vertical space** (2026-09-02): the letterhead's
   professional-membership line, RPPS and Adeli share one line joined by " — ",
   with unset parts dropping out rather than leaving a dangling separator;
-  likewise `Date de naissance … — Sexe …` in the identity block and
-  `Date de l'examen … — Médecin …` under "Compte rendu". Four lines saved.
+  likewise date of birth with sex in the identity block, and the exam date with
+  the doctor under "Compte rendu". Four lines saved. Those last two pairs use
+  `drawPair`, which puts the second field at a fixed `PAIR_COLUMN` offset so
+  "Sexe" and "Médecin" align under each other — an em-dash separator read as
+  cramped. It falls back to a spaced " — " if the first field is ever wide
+  enough to reach that column (a legacy non-ISO `exam_date` printed raw, say).
+- **List markers are real bullets** (`BULLET`, U+2022), not hyphens, at both
+  the side and artery levels. Safe because the embedded Liberation Sans carries
+  the glyph — a pdf-lib StandardFont would not.
   The credentials line normally wraps at the full content width, because the
   right-aligned address only occupies the top row — it is narrowed to
   `LETTERHEAD_COLUMN_WIDTH` only when the address actually wraps far enough

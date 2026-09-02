@@ -181,14 +181,14 @@ describe("buildReportPdf", () => {
     const parsed = await parsePdf(
       await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings()),
     );
-    expect(parsed.text).toContain("Date de naissance : 12/03/1958 — Sexe : Masculin");
+    expect(parsed.text).toContain("Date de naissance : 12/03/1958 Sexe : Masculin");
   });
 
   it("puts the exam date and the doctor on one line", async () => {
     const parsed = await parsePdf(
       await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings()),
     );
-    expect(parsed.text).toContain("Date de l'examen : 13/08/2026 — Médecin : Dr. Martin");
+    expect(parsed.text).toContain("Date de l'examen : 13/08/2026 Médecin : Dr. Martin");
   });
 
   it("includes the four top-level section headers", async () => {
@@ -299,9 +299,9 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("- Droite : IMT : 0.62 mm. Ratio ACI/ACC : 1.8");
-    expect(parsed.text).toContain("- Gauche : IMT : 0.58 mm. Ratio ACI/ACC : 1.2");
-    expect(parsed.text.indexOf("- Droite")).toBeLessThan(parsed.text.indexOf("- Gauche"));
+    expect(parsed.text).toContain("• Droite : IMT : 0.62 mm. Ratio ACI/ACC : 1.8");
+    expect(parsed.text).toContain("• Gauche : IMT : 0.58 mm. Ratio ACI/ACC : 1.2");
+    expect(parsed.text.indexOf("• Droite")).toBeLessThan(parsed.text.indexOf("• Gauche"));
     // The side-by-side column header is gone.
     expect(parsed.text).not.toContain("Gauche Droite");
   });
@@ -319,8 +319,8 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("- Droite : IPS : 0.86");
-    expect(parsed.text).toContain("- Gauche : IPS : 0.93");
+    expect(parsed.text).toContain("• Droite : IPS : 0.86");
+    expect(parsed.text).toContain("• Gauche : IPS : 0.93");
   });
 
   it("omits a side that has no measurement of its own", async () => {
@@ -331,8 +331,8 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("- Droite : IMT : 0.62 mm");
-    expect(parsed.text).not.toContain("- Gauche");
+    expect(parsed.text).toContain("• Droite : IMT : 0.62 mm");
+    expect(parsed.text).not.toContain("• Gauche");
   });
 
   it("prints the TSA reference criteria (VSM stenosis thresholds and vertebral flow)", async () => {
@@ -502,7 +502,7 @@ describe("buildReportPdf", () => {
     );
     const parsed = await parsePdf(bytes);
     expect(parsed.text).toContain(
-      "- Artère fémorale commune (AFC) VSM : 90 cm/s. Spectre : triphasique. Flux : laminaire",
+      "• Artère fémorale commune (AFC) VSM : 90 cm/s. Spectre : triphasique. Flux : laminaire",
     );
   });
 
@@ -521,13 +521,13 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("- Droite : IPS : 0.86");
+    expect(parsed.text).toContain("• Droite : IPS : 0.86");
     expect(parsed.text).toContain(
-      "- Artère fémorale superficielle (AFS) Spectre : monophasique. Flux : amortie",
+      "• Artère fémorale superficielle (AFS) Spectre : monophasique. Flux : amortie",
     );
-    expect(parsed.text).toContain("- Gauche : IPS : 0.93");
-    expect(parsed.text).toContain("- Artère poplitée Spectre : diphasique");
-    expect(parsed.text.indexOf("- Droite")).toBeLessThan(parsed.text.indexOf("- Gauche"));
+    expect(parsed.text).toContain("• Gauche : IPS : 0.93");
+    expect(parsed.text).toContain("• Artère poplitée Spectre : diphasique");
+    expect(parsed.text.indexOf("• Droite")).toBeLessThan(parsed.text.indexOf("• Gauche"));
   });
 
   it("no longer prints any systolic pressure line", async () => {
@@ -545,7 +545,7 @@ describe("buildReportPdf", () => {
     const parsed = await parsePdf(bytes);
     expect(parsed.text).not.toContain("Pression systolique bras");
     expect(parsed.text).not.toContain("Pression cheville");
-    expect(parsed.text).toContain("- Droite : IPS : 0.86");
+    expect(parsed.text).toContain("• Droite : IPS : 0.86");
   });
 
   it("omits an artery with no spectre and no vsm, and a side with nothing at all", async () => {
@@ -559,9 +559,9 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("- Artère fémorale commune (AFC) Spectre : triphasique");
+    expect(parsed.text).toContain("• Artère fémorale commune (AFC) Spectre : triphasique");
     expect(parsed.text).not.toContain("Artère fibulaire");
-    expect(parsed.text).not.toContain("- Gauche");
+    expect(parsed.text).not.toContain("• Gauche");
   });
 
   it("prints the Gauche header even when only arteries are present (no IPS)", async () => {
@@ -575,7 +575,7 @@ describe("buildReportPdf", () => {
       makeSettings(),
     );
     const parsed = await parsePdf(bytes);
-    expect(parsed.text).toContain("- Gauche :");
+    expect(parsed.text).toContain("• Gauche :");
   });
 
   it("draws the Gauche header between the Droite and Gauche artery rows when only Droite has an IPS", async () => {
@@ -594,7 +594,7 @@ describe("buildReportPdf", () => {
     );
     const parsed = await parsePdf(bytes);
     const droiteAfc = parsed.text.indexOf("VSM : 90 cm/s");
-    const gaucheHeader = parsed.text.indexOf("- Gauche :");
+    const gaucheHeader = parsed.text.indexOf("• Gauche :");
     const gaucheAfc = parsed.text.indexOf("VSM : 55 cm/s");
     expect(droiteAfc).toBeGreaterThanOrEqual(0);
     expect(gaucheHeader).toBeGreaterThan(droiteAfc);
