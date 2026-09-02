@@ -130,7 +130,7 @@ describe("buildReportPdf", () => {
     const bytes = await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings());
     const parsed = await parsePdf(bytes);
     const sections = [
-      "Identité du patient",
+      "Patient(e) :",
       "Compte rendu",
       "INDICATION",
       "TECHNIQUE",
@@ -177,11 +177,13 @@ describe("buildReportPdf", () => {
     expect(parsed.text).not.toContain(" — RPPS");
   });
 
-  it("puts the date of birth and the sex on one line", async () => {
+  it("states the identity as one sentence", async () => {
     const parsed = await parsePdf(
       await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings()),
     );
-    expect(parsed.text).toContain("Date de naissance : 12/03/1958 Sexe : Masculin");
+    expect(parsed.text).toContain(
+      "Patient(e) : DUPONT Jean, né(e) le 12/03/1958 de sexe masculin",
+    );
   });
 
   it("puts the exam date and the doctor on one line", async () => {

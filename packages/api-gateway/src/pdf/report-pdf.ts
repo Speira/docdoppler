@@ -458,18 +458,14 @@ export async function buildReportPdf(
   }
 
   y = Math.min(leftY, rightY);
-  page.drawLine({
-    start: { x: MARGIN, y },
-    end: { x: PAGE_WIDTH - MARGIN, y },
-    thickness: 0.5,
-  });
   y -= LINE_HEIGHT;
 
-  drawHeading("Identité du patient", SECTION_HEADING_SIZE);
-  draw(patientIdentity, 10);
-  drawPair(
-    `Date de naissance : ${formatDateFR(patient.dob)}`,
-    `Sexe : ${patient.sex === "F" ? "Féminin" : "Masculin"}`,
+  // The identity reads as one sentence rather than a headed block of
+  // label/value lines — it labels itself, so it needs no "Identité du patient"
+  // heading above it, and it is not bold.
+  drawWrapped(
+    `Patient(e) : ${patientIdentity}, né(e) le ${formatDateFR(patient.dob)}` +
+      ` de sexe ${patient.sex === "F" ? "féminin" : "masculin"}`,
     10,
   );
   // The referring physician belongs with the patient's identity, not with the

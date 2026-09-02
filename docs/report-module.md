@@ -335,6 +335,16 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
   "Sexe" and "Médecin" align under each other — an em-dash separator read as
   cramped. It falls back to a spaced " — " if the first field is ever wide
   enough to reach that column (a legacy non-ISO `exam_date` printed raw, say).
+- **Patient identity is one sentence** (2026-09-02):
+  `Patient(e) : NOM Prénom, né(e) le jj/mm/aaaa de sexe féminin|masculin`,
+  not bold. This replaces the "Identité du patient" heading plus its separate
+  name and `Date de naissance` / `Sexe` lines — the sentence labels itself, so
+  the heading was redundant. `Médecin correspondant` still follows it.
+  Note the neutral `Patient(e)` / `né(e)` forms are printed even though the sex
+  is known, as the doctor wrote them; the continuation-page header still uses
+  the agreed `né`/`née`.
+- **The full-width rule under the letterhead is gone** (2026-09-02) — the gap
+  alone separates the letterhead from the body.
 - **Letterhead is one uniform block** (2026-09-02): the doctor name, the
   "Écho-Doppler Vasculaire" activity line, the credentials line and the address
   all render at `LETTERHEAD_SIZE` (10) with **no bold** — the name was 16pt bold
