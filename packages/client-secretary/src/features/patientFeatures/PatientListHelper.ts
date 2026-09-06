@@ -13,17 +13,30 @@ export type PatientWithReportStatus = PatientRecord & { latestReportId: number |
 
 export type ReportStatusFilter = 'all' | 'with' | 'without'
 
+/** `null` means "unsorted": the list keeps the order the API returned. */
+export type ExamDateSort = 'asc' | 'desc' | null
+
+/**
+ * Why the table body has no rows: nothing has been recorded yet, or the
+ * current search/filter combination excludes everything. The two need
+ * different copy and different recovery actions.
+ */
+export type PatientListEmptyState = 'no-patients' | 'no-matches'
+
 export class PatientListHelper {
   static async listPatientsWithReportStatus(): Promise<PatientWithReportStatus[]> {
     const patients = await patientService.listPatients()
+    // Only the latest report's id is needed per row, so ask for exactly one
+    // slim summary rather than downloading every report of every patient.
     const results = await Promise.allSettled(
-      patients.map((patient) => reportService.listReports(patient.id)),
+      patients.map((patient) => reportService.listReports(patient.id, { limit: 1 })),
     )
     return patients.map((patient, index) => {
       const result = results[index]
       return {
         ...patient,
-        latestReportId: result.status === 'fulfilled' ? result.value[0]?.id ?? null : null,
+        latestReportId:
+          result.status === 'fulfilled' ? result.value.items[0]?.id ?? null : null,
       }
     })
   }
@@ -51,6 +64,51 @@ export class PatientListHelper {
 
   static parseReportFilter(value: unknown): ReportStatusFilter {
     return value === 'with' || value === 'without' ? value : 'all'
+  }
+
+  static sortByExamDate<T extends PatientRecord>(patients: T[], sort: ExamDateSort): T[] {
+    if (!sort) return patients
+    const factor = sort === 'asc' ? 1 : -1
+    // ISO dates sort correctly as plain strings; Array#sort is stable, so
+    // patients sharing an exam date keep the order the API returned.
+    return [...patients].sort((a, b) => factor * a.exam_date.localeCompare(b.exam_date))
+  }
+
+  /** Cycles ascending → descending → unsorted, so the API order stays reachable. */
+  static nextExamDateSort(sort: ExamDateSort): ExamDateSort {
+    if (sort === 'asc') return 'desc'
+    if (sort === 'desc') return null
+    return 'asc'
+  }
+
+  static examDateAriaSort(sort: ExamDateSort): 'ascending' | 'descending' | 'none' {
+    if (sort === 'asc') return 'ascending'
+    if (sort === 'desc') return 'descending'
+    return 'none'
+  }
+
+  static hasActiveFilters(query: string, filter: ReportStatusFilter): boolean {
+    return query.trim() !== '' || filter !== 'all'
+  }
+
+  static emptyState(
+    totalCount: number,
+    query: string,
+    filter: ReportStatusFilter,
+  ): PatientListEmptyState {
+    return totalCount === 0 && !PatientListHelper.hasActiveFilters(query, filter)
+      ? 'no-patients'
+      : 'no-matches'
+  }
+
+  /** French plural mark for the counts rendered next to a number. */
+  static pluralSuffix(count: number): '' | 's' {
+    return count > 1 ? 's' : ''
+  }
+
+  /** "DUPONT Jean" — surname first and capitalised, the way a paper file is labelled. */
+  static formatFullName(patient: Pick<PatientRecord, 'first_name' | 'last_name'>): string {
+    return `${patient.last_name.toUpperCase()} ${patient.first_name}`.trim()
   }
 
   static formatDate(isoDate: string): string {

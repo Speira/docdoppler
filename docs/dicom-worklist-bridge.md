@@ -140,6 +140,8 @@ Still unconfirmed / open:
     accented French names (e.g. "François", "Bénédicte") round-trip
     correctly
   - PatientName, PatientID, PatientBirthDate, PatientSex — from identity fields
+    (`patients.sex` is stored as `M`/`F`/`O`, already DICOM's own PatientSex codes,
+    so it is forwarded verbatim)
   - AccessionNumber, RequestedProcedureID — from `accession_number`
   - StudyInstanceUID — generated via `pydicom.uid.generate_uid()`, keyed off
     `accession_number` as the entropy source so repeated C-FIND queries for

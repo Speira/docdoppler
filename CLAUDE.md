@@ -23,13 +23,27 @@
 ## Screens
 
 0. Homepage (`/`, implemented 2026-08-24): landing page with cards linking to Patients/Rapports/Paramètres + light stats (patient count, patients with a report, settings configured); global `SiteHeader`/`SiteFooter` (app name "DocDoppler") wrap every route via `routes/__root.tsx`
-1. Secretary intake: patient identity + medical history form (`/patients/add`, create or edit via `?id=`) — patient list is `/patients`, merged 2026-09-01 with report status/actions (see below) and a `?reportFilter=all|with|without` filter; `/reports` redirects here. The detail screen also shows a "Historique des rapports" list of every report for that patient, each linking to its PDF.
+1. Secretary intake: patient identity + medical history form — `/patients/add` creates, `/patients/$patientId` edits (split 2026-09-02; the old `/patients/add?id=N` still 301s to the new URL via `beforeLoad`, and `PatientEditHelper.parsePatientId` validates the path param — a non-numeric or unknown-shaped id renders `PatientNotFound`, an unknown-but-valid id surfaces the API's `PATIENT_NOT_FOUND` through `RouteError`). Patient list is `/patients`, merged 2026-09-01 with report status/actions (see below) and a `?reportFilter=all|with|without` filter; `/reports` redirects here. The edit screen also shows a paginated "Historique des rapports" list (first 3 — `patientReportHistoryPageSize` — with "Voir plus" paging in the rest; header count is the server-side total) — `GET /patients/:id/reports` is bounded and slim since 2026-09-02, see `packages/api-gateway/README.md`.
+   Create and edit share `PatientEditorFrame` (header, form, sticky action bar, both confirmation dialogs) and `usePatientUnsavedGuard`; they differ only in copy, submit behaviour and the edit-only extras (report history, delete). Reworked 2026-09-02 alongside the list: island panels, two-column identity grid via container queries, risk factors as palm-tinted toggle cards in `<fieldset>`s, patient name as the `<h1>` (from the saved baseline, not the live field), and a sticky save bar so the primary action is never off-screen.
+   The list table was redesigned 2026-09-02: identity, date of birth, age, sex and file number collapse into one
+   name-led column (the name is the link to the patient file — the per-row "Modifier" button is gone, and the row itself is
+   no longer a click target, so no `stopPropagation` juggling); the exam-date header is a three-state sort (asc → desc →
+   API order) carrying `aria-sort`; report status is a chip plus a `--palm` rail in the row's left gutter
+   (`.patient-row` in `styles.css`), and its column folds into the name cell below `lg`; action labels collapse to icons
+   below `sm`, so the table fits a 390px viewport without horizontal scroll. Empty results distinguish "no patients yet"
+   from "nothing matches the current search/filter" (`PatientListHelper.emptyState`). Note the global `a` rule in
+   `styles.css` is scoped `a:not([data-slot='button'])` so `<Button asChild><Link/></Button>` keeps the button's colours.
 2. Doctor report builder: read patient + history, enter findings per exam region, generate PDF — reached from `/patients` row actions at `/reports/$patientId`; the list surfaces only the latest report per patient, older reports are on the patient detail screen's history list
 3. Clinic identity settings (`/settings`, implemented 2026-08-24): doctor/clinic letterhead + Mindray machine info, used as defaults in the report PDF — see docs/report-module.md
 
 ## Data model
 
-- patients: id, first_name, last_name, dob, sex, exam_date, accession_number
+- patients: id, first_name, last_name, dob, sex, exam_date, accession_number —
+  `sex` is `'M'`, `'F'` or `'O'` ("Autre" in the UI; `'O'` is DICOM's own code for
+  other, so the worklist bridge passes it through to PatientSex unchanged). Widening
+  the column's CHECK constraint on an already-created database is handled by
+  `ensureSexAllowsOther` in `db/index.ts`, which rebuilds the table — `CREATE TABLE
+  IF NOT EXISTS` cannot alter a CHECK.
 - risk_factors: patient_id, diabetes, hypertension, cholesterol, obesity, vertigo, carotid_bruit, avc, smoking (booleans)
 - reports: patient_id, doctor_name, exam_date, correspondant_dossier, indication, TSA fields
   (imt/aci_acc_ratio per side + findings), aorte abdominale fields (diametre/anevrisme/findings),

@@ -15,3 +15,11 @@ export type PatientFormValues = {
   avc: boolean
   smoking: boolean
 }
+
+/** Copy for one of the patient editor's two confirmation dialogs. */
+export type PatientEditorDialogCopy = {
+  title: string
+  description: string
+  cancelLabel: string
+  confirmLabel: string
+}

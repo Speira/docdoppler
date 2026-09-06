@@ -19,7 +19,7 @@ export interface CreatePatientInput {
   first_name: string;
   last_name: string;
   dob: string;
-  sex: "M" | "F";
+  sex: "M" | "F" | "O";
   exam_date: string;
 }
 
@@ -72,7 +72,7 @@ export function validateCreatePatient(
   if (typeof b.sex !== "string" || b.sex.trim().length === 0) {
     return { valid: false, error: "SEX_REQUIRED" };
   }
-  if (b.sex !== "M" && b.sex !== "F") {
+  if (b.sex !== "M" && b.sex !== "F" && b.sex !== "O") {
     return { valid: false, error: "SEX_INVALID" };
   }
   let examDate = todayIsoString();
@@ -126,7 +126,7 @@ export function validateUpdatePatient(
     data.dob = b.dob;
   }
   if (b.sex !== undefined) {
-    if (b.sex !== "M" && b.sex !== "F") {
+    if (b.sex !== "M" && b.sex !== "F" && b.sex !== "O") {
       return { valid: false, error: "SEX_INVALID" };
     }
     data.sex = b.sex;

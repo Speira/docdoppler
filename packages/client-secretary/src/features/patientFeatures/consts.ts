@@ -20,6 +20,19 @@ export function getPatientFormDefaultValues(): PatientFormValues {
   }
 }
 
+/**
+ * How many reports the patient file shows before "Voir plus". Three is what
+ * the doctor actually reads on opening a file; the rest stay one click away
+ * rather than unreachable, since this list is the only route to a patient's
+ * older reports (the patient list shows just the latest one).
+ *
+ * Sent as an explicit `limit`, so the route loader's first page is already
+ * this size and no second request fires on mount. It is deliberately smaller
+ * than the API's own default (`REPORT_LIST_DEFAULT_LIMIT`, 10), which governs
+ * only requests that name no limit.
+ */
+export const patientReportHistoryPageSize = 3
+
 type HistoryField = { key: keyof PatientFormValues; label: string }
 
 export const patientHistoryFieldGroups: { title: string; fields: HistoryField[] }[] = [
@@ -53,7 +66,7 @@ export const patientFormSchema = z.object({
       message: 'La date de naissance ne peut pas être dans le futur.',
     }),
   exam_date: z.string().min(1, "La date de l'examen est requise."),
-  sex: z.enum(['M', 'F']),
+  sex: z.enum(['M', 'F', 'O']),
   diabetes: z.boolean(),
   hypertension: z.boolean(),
   cholesterol: z.boolean(),

@@ -1,42 +1,29 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { PatientCreate } from '#/features/patientFeatures/PatientCreate'
-import { PatientEdit } from '#/features/patientFeatures/PatientEdit'
 import { PatientEditHelper } from '#/features/patientFeatures/PatientEditHelper'
 import { RouteError } from '#/components/route-error'
 import { i18next } from '#/lib/i18n'
 
-type Search = { id?: number }
-
 export const Route = createFileRoute('/patients/add')({
-  // The default search parser JSON-parses each raw query value before this
-  // runs, so a numeric ?id=1 already arrives as the number 1, not "1".
-  validateSearch: (s: Record<string, unknown>): Search => {
-    if (typeof s.id === 'number' && Number.isInteger(s.id)) return { id: s.id }
-    if (
-      typeof s.id === 'string' &&
-      s.id.trim() !== '' &&
-      !Number.isNaN(Number(s.id))
-    ) {
-      return { id: Number(s.id) }
+  beforeLoad: ({ location }) => {
+    // Editing used to live here as `/patients/add?id=N`. Old bookmarks are
+    // sent to the real file rather than shown an empty create form, which
+    // would quietly invite a duplicate record for a patient we already have.
+    const search: Record<string, unknown> = { ...location.search }
+    const legacyId = PatientEditHelper.parsePatientId(search.id)
+    if (legacyId !== null) {
+      throw redirect({
+        to: '/patients/$patientId',
+        params: { patientId: String(legacyId) },
+        replace: true,
+      })
     }
-    return { id: undefined }
   },
-  loaderDeps: ({ search }) => ({ id: search.id }),
-  loader: ({ deps }) => ({
-    patient:
-      deps.id === undefined
-        ? undefined
-        : PatientEditHelper.loadPatient(deps.id),
-    reports:
-      deps.id === undefined
-        ? undefined
-        : PatientEditHelper.listReports(deps.id),
-  }),
   errorComponent: ({ error }) => <RouteError error={error} />,
   head: () => ({
     meta: [
-      { title: i18next.t('Ajout de patient — DocDoppler') },
+      { title: i18next.t('Nouveau patient — DocDoppler') },
       {
         name: 'description',
         content: i18next.t(
@@ -45,14 +32,5 @@ export const Route = createFileRoute('/patients/add')({
       },
     ],
   }),
-  component: Secretariat,
+  component: PatientCreate,
 })
-
-function Secretariat() {
-  const { id } = Route.useSearch()
-  const { patient, reports } = Route.useLoaderData()
-  if (id === undefined || !patient || !reports) return <PatientCreate />
-  return (
-    <PatientEdit key={id} id={id} patientPromise={patient} reportsPromise={reports} />
-  )
-}

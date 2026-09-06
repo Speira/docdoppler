@@ -163,18 +163,28 @@ were mixing up the two nearly-identical list pages. `/patients` now carries a
 report-status filter; `/reports` redirects to `/patients`, `/reports/$patientId`
 (the report builder) is unchanged. Only the latest report per patient is
 surfaced in the list — browsing older reports for a patient with multiple
-visits happens on the patient detail screen (`/patients/add?id=`), which now
-shows a read-only "Historique des rapports" list of every report for that
-patient, each linking to its PDF.
+visits happens on the patient file (`/patients/$patientId`), which shows a
+read-only "Historique des rapports" list, each entry linking to its PDF.
 
-**Known follow-up:** the patients list decorates each patient with their
+**Bounded since 2026-09-02.** `GET /patients/:id/reports` is paginated and
+returns a *slim* projection (`{ id, patient_id, exam_date, created_at }`,
+no artery join) wrapped in `{ items, total, limit, offset }` — see
+`api-gateway/README.md` for the limit/offset contract. Before that it returned
+every column of every report plus every per-artery child row, so opening a
+patient file downloaded the patient's entire report history to render a date
+and a PDF link. The history panel shows the first 10 and pages the rest in
+with "Voir plus"; the header count uses `total`, so it stays true regardless
+of how many rows are on screen.
+
+**Known follow-up:** the patients list still decorates each patient with their
 latest report via one request per patient
 (`PatientListHelper.listPatientsWithReportStatus`, a 1+N fan-out over
-`GET /patients/:id/reports`) — fine at clinic scale, but it will not hold at
-a few thousand patients now that `/patients` is the app's primary landing
-page. The fix when it's needed is to return a `latest_report_id` directly
-from `api-gateway`'s patient list query (a `LEFT JOIN` on the latest report
-per patient) and drop the fan-out.
+`GET /patients/:id/reports`), as does the homepage stat (`HomeHelper`). Each
+call is now `?limit=1` against the slim projection, so the payload is small,
+but it is still N requests — it will not hold at a few thousand patients now
+that `/patients` is the app's primary landing page. The fix when it's needed
+is to return a `latest_report_id` directly from `api-gateway`'s patient list
+query (a `LEFT JOIN` on the latest report per patient) and drop the fan-out.
 
 ## Explicitly out of scope for this module
 
@@ -336,13 +346,15 @@ Layout changes (all in `packages/api-gateway/src/pdf/report-pdf.ts`):
   cramped. It falls back to a spaced " — " if the first field is ever wide
   enough to reach that column (a legacy non-ISO `exam_date` printed raw, say).
 - **Patient identity is one sentence** (2026-09-02):
-  `Patient(e) : NOM Prénom, né(e) le jj/mm/aaaa de sexe féminin|masculin`,
+  `Patient(e) : NOM Prénom, né(e) le jj/mm/aaaa de sexe féminin|masculin|non précisé`,
   not bold. This replaces the "Identité du patient" heading plus its separate
   name and `Date de naissance` / `Sexe` lines — the sentence labels itself, so
   the heading was redundant. `Médecin correspondant` still follows it.
   Note the neutral `Patient(e)` / `né(e)` forms are printed even though the sex
   is known, as the doctor wrote them; the continuation-page header still uses
-  the agreed `né`/`née`.
+  the agreed `né`/`née`. Sex `'O'` ("Autre", 2026-09-02) prints as
+  `de sexe non précisé`, and its continuation header falls back to `né(e)` —
+  see `bornLabel`/`sexLabel` in `report-pdf.ts`.
 - **The full-width rule under the letterhead is gone** (2026-09-02) — the gap
   alone separates the letterhead from the body.
 - **Letterhead is one uniform block** (2026-09-02): the doctor name, the

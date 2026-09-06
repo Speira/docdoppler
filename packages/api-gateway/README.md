@@ -22,7 +22,7 @@ Body (`exam_date` optional, everything else required):
 }
 ```
 
-`sex` is `"M"` or `"F"`. `dob` is `YYYY-MM-DD`, must be a real calendar date, not in the future. `exam_date` is `YYYY-MM-DD`, must be a real calendar date; if omitted, defaults server-side to today's date. Unlike `dob`, it may be in the future (advance bookings). `accession_number` is generated server-side (`YYYYMMDD-NNN`, sequenced per `exam_date`) and cannot be set by the caller.
+`sex` is `"M"`, `"F"` or `"O"` (other — the DICOM code, shown as "Autre" in the UI). `dob` is `YYYY-MM-DD`, must be a real calendar date, not in the future. `exam_date` is `YYYY-MM-DD`, must be a real calendar date; if omitted, defaults server-side to today's date. Unlike `dob`, it may be in the future (advance bookings). `accession_number` is generated server-side (`YYYYMMDD-NNN`, sequenced per `exam_date`) and cannot be set by the caller.
 
 - `201` → the created patient row: `{ id, first_name, last_name, dob, sex, exam_date, accession_number, created_at, updated_at }`
 - `400` → `FIRST_NAME_REQUIRED` | `LAST_NAME_REQUIRED` | `DOB_REQUIRED` | `DOB_INVALID` | `DOB_IN_FUTURE` | `SEX_REQUIRED` | `SEX_INVALID` | `EXAM_DATE_INVALID`
@@ -157,8 +157,27 @@ returns it in the response. It's `null` unless all four pressures are given.
 
 ### `GET /patients/:id/reports`
 
-- `200` → the patient's reports, newest first (empty array if none): same shape as the `POST` response, as an array.
-- `404` → `PATIENT_NOT_FOUND`
+Paginated and **slim**: a patient file accumulates reports for years, so this
+endpoint returns only what a list view renders and never the artery join. Read
+one full report with `GET /reports/:id/pdf`, or `getReport` in-process.
+
+Query params (both optional):
+
+- `limit` — default `10`, hard maximum `100`. A value above the maximum is
+  **clamped** (a legitimate ask the server declines to fully honour); `0`,
+  negative, fractional or non-numeric values are **rejected**. An empty value
+  (`?limit=`) counts as absent.
+- `offset` — default `0`. Same rules, except `0` is valid. An offset past the
+  end returns an empty `items` array, not an error.
+
+- `200` → `{ items, total, limit, offset }`, newest first (`created_at DESC, id DESC`).
+  Each item is `{ id, patient_id, exam_date, created_at }` — nothing else, and no `arteres`.
+  `total` is the patient's full report count, independent of the page, so a caller
+  can show a real count and work out whether more rows exist
+  (`offset + items.length < total`). `limit` echoes the value actually applied
+  after clamping.
+- `400` → `REPORT_PAGINATION_INVALID`
+- `404` → `PATIENT_NOT_FOUND` (checked before the query is validated, matching `POST`)
 
 ### `GET /reports/:id/pdf`
 

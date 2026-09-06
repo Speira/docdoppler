@@ -4,6 +4,7 @@ import {
   createConnection,
   ensureExamDateColumn,
   ensureAccessionNumberColumn,
+  ensureSexAllowsOther,
 } from "./index.js";
 import { createPatient } from "./patients.js";
 
@@ -22,6 +23,17 @@ describe("db schema", () => {
     const db = createConnection(":memory:");
     const fkStatus = db.pragma("foreign_keys", { simple: true });
     expect(fkStatus).toBe(1);
+  });
+
+  it("accepts the DICOM 'O' sex value", () => {
+    const db = createConnection(":memory:");
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+        )
+        .run("Camille", "Dupont", "1958-03-12", "O"),
+    ).not.toThrow();
   });
 
   it("rejects an invalid sex value", () => {
@@ -338,5 +350,101 @@ describe("db schema", () => {
     db.prepare("DELETE FROM patients WHERE id = ?").run(patientId);
     const rows = db.prepare("SELECT * FROM reports WHERE patient_id = ?").all(patientId);
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("ensureSexAllowsOther", () => {
+  // A database created before "Autre" existed: CHECK (sex IN ('M', 'F')).
+  function legacyDb(): Database.Database {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE patients (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name       TEXT NOT NULL,
+        last_name        TEXT NOT NULL,
+        dob              TEXT NOT NULL,
+        sex              TEXT NOT NULL CHECK (sex IN ('M', 'F')),
+        exam_date        TEXT NOT NULL DEFAULT CURRENT_DATE,
+        accession_number TEXT NOT NULL DEFAULT '',
+        created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE risk_factors (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        diabetes   INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TRIGGER patients_set_updated_at
+      AFTER UPDATE ON patients
+      BEGIN
+        UPDATE patients SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+      INSERT INTO patients (first_name, last_name, dob, sex, exam_date, accession_number)
+        VALUES ('Jean', 'Dupont', '1958-03-12', 'M', '2026-08-13', 'A20260813-001');
+      INSERT INTO risk_factors (patient_id, diabetes) VALUES (1, 1);
+    `);
+    db.pragma("foreign_keys = ON");
+    return db;
+  }
+
+  it("widens the sex CHECK constraint on an existing database", () => {
+    const db = legacyDb();
+    ensureSexAllowsOther(db);
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+        )
+        .run("Camille", "Martin", "1970-01-01", "O"),
+    ).not.toThrow();
+  });
+
+  it("keeps the existing rows, their children and the updated_at trigger", () => {
+    const db = legacyDb();
+    ensureSexAllowsOther(db);
+
+    const patient = db.prepare("SELECT * FROM patients WHERE id = 1").get() as Record<
+      string,
+      unknown
+    >;
+    expect(patient.last_name).toBe("Dupont");
+    expect(patient.accession_number).toBe("A20260813-001");
+
+    const children = db
+      .prepare("SELECT COUNT(*) AS n FROM risk_factors WHERE patient_id = 1")
+      .get() as { n: number };
+    expect(children.n).toBe(1);
+
+    db.prepare("UPDATE patients SET first_name = ? WHERE id = ?").run("Jeanne", 1);
+    const after = db.prepare("SELECT updated_at FROM patients WHERE id = 1").get() as {
+      updated_at: string;
+    };
+    expect(after.updated_at).toBeTruthy();
+
+    expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
+  });
+
+  it("still rejects a sex value outside M/F/O after the migration", () => {
+    const db = legacyDb();
+    ensureSexAllowsOther(db);
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO patients (first_name, last_name, dob, sex) VALUES (?, ?, ?, ?)",
+        )
+        .run("Camille", "Martin", "1970-01-01", "X"),
+    ).toThrow(/CHECK constraint failed/);
+  });
+
+  it("is a no-op on a database that already allows O", () => {
+    const db = createConnection(":memory:");
+    const before = db
+      .prepare("SELECT sql FROM sqlite_master WHERE name = 'patients'")
+      .get() as { sql: string };
+    ensureSexAllowsOther(db);
+    const after = db
+      .prepare("SELECT sql FROM sqlite_master WHERE name = 'patients'")
+      .get() as { sql: string };
+    expect(after.sql).toBe(before.sql);
   });
 });

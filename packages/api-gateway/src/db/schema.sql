@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS patients (
   first_name       TEXT NOT NULL,
   last_name        TEXT NOT NULL,
   dob              TEXT NOT NULL,
-  sex              TEXT NOT NULL CHECK (sex IN ('M', 'F')),
+  sex              TEXT NOT NULL CHECK (sex IN ('M', 'F', 'O')),
   exam_date        TEXT NOT NULL DEFAULT CURRENT_DATE,
   accession_number TEXT NOT NULL DEFAULT '',
   created_at       TEXT NOT NULL DEFAULT (datetime('now')),

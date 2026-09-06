@@ -2,7 +2,7 @@ import { ApiError } from "./api-error"
 
 const API_BASE_URL = "http://localhost:3000"
 
-export type Sex = "M" | "F"
+export type Sex = "M" | "F" | "O"
 
 export interface PatientRecord {
   id: number

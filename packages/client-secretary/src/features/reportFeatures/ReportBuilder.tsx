@@ -26,6 +26,7 @@ import { reportApiErrorMessage, reportService } from '#/services/report-service'
 import type { PatientWithRiskFactors } from '#/services/patient-service'
 import type { ClinicSettingsRecord } from '#/services/settings-service'
 import { formatDateFR } from '#/lib/date'
+import { formatSex } from '#/lib/sex'
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -463,7 +464,7 @@ function ReportBuilderView({
         <CardContent className="space-y-2 text-sm">
           <p>
             {t('Date de naissance')} : {formatDateFR(patient.dob)} (
-            {patient.sex === 'F' ? t('Féminin') : t('Masculin')})
+            {formatSex(patient.sex, t)})
           </p>
           <p>
             {t('Antécédents')} :{' '}

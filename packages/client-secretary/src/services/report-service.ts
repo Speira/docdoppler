@@ -63,11 +63,36 @@ export interface ReportRecord {
   created_at: string
 }
 
+/**
+ * What `GET /patients/:id/reports` returns per row — the list projection, not
+ * a whole report. `total` is the patient's full count, so a caller can show a
+ * real total and derive whether more rows exist.
+ */
+export interface ReportSummary {
+  id: number
+  patient_id: number
+  exam_date: string
+  created_at: string
+}
+
+export interface ReportPage {
+  items: ReportSummary[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface ReportPageQuery {
+  limit?: number
+  offset?: number
+}
+
 export type ReportApiErrorCode =
   | "DOCTOR_NAME_REQUIRED"
   | "EXAM_DATE_REQUIRED"
   | "EXAM_DATE_INVALID"
   | "REPORT_FIELD_INVALID"
+  | "REPORT_PAGINATION_INVALID"
   | "PATIENT_NOT_FOUND"
   | "REPORT_NOT_FOUND"
   | "UNKNOWN_ERROR"
@@ -77,6 +102,7 @@ export const reportApiErrorLabels: Record<ReportApiErrorCode, string> = {
   EXAM_DATE_REQUIRED: "La date de l'examen est requise.",
   EXAM_DATE_INVALID: "La date de l'examen est invalide.",
   REPORT_FIELD_INVALID: "Une valeur du rapport est invalide.",
+  REPORT_PAGINATION_INVALID: "La pagination des rapports est invalide.",
   PATIENT_NOT_FOUND: "Patient introuvable.",
   REPORT_NOT_FOUND: "Rapport introuvable.",
   UNKNOWN_ERROR: "Une erreur inattendue est survenue.",
@@ -108,8 +134,14 @@ export class ReportService {
     })
   }
 
-  listReports(patientId: number): Promise<ReportRecord[]> {
-    return request<ReportRecord[]>(`/patients/${patientId}/reports`)
+  listReports(patientId: number, query: ReportPageQuery = {}): Promise<ReportPage> {
+    const params = new URLSearchParams()
+    if (query.limit !== undefined) params.set("limit", String(query.limit))
+    if (query.offset !== undefined) params.set("offset", String(query.offset))
+    const search = params.toString()
+    return request<ReportPage>(
+      `/patients/${patientId}/reports${search ? `?${search}` : ""}`,
+    )
   }
 
   reportPdfUrl(reportId: number): string {

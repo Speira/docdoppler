@@ -14,11 +14,13 @@ export class HomeHelper {
       patientService.listPatients(),
       settingsService.getSettings(),
     ])
+    // The stat only needs "does this patient have any report", so each lookup
+    // asks for a single slim row and reads the server-side total.
     const reportResults = await Promise.allSettled(
-      patients.map((patient) => reportService.listReports(patient.id)),
+      patients.map((patient) => reportService.listReports(patient.id, { limit: 1 })),
     )
     const patientsWithReportCount = reportResults.filter(
-      (result) => result.status === 'fulfilled' && result.value.length > 0,
+      (result) => result.status === 'fulfilled' && result.value.total > 0,
     ).length
 
     return {

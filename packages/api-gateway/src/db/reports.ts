@@ -60,6 +60,24 @@ export interface ReportWithArteries extends ReportRow {
   arteres: ArteriesBySide;
 }
 
+/**
+ * What a list view needs and nothing more. The patient file's history panel
+ * renders an exam date, a creation date and a PDF link per row, so it must
+ * not drag every finding — nor the per-artery child rows — across the wire.
+ * `getReport` still serves the full shape for the PDF and the report builder.
+ */
+export interface ReportSummaryRow {
+  id: number;
+  patient_id: number;
+  exam_date: string;
+  created_at: string;
+}
+
+export interface ReportListOptions {
+  limit: number;
+  offset: number;
+}
+
 // IPS = pression systolique cheville / pression brachiale de référence (la
 // plus élevée des deux bras, même dénominateur pour les deux côtés) — formule
 // confirmée par le médecin le 2026-08-21, voir docs/report-module.md.
@@ -165,4 +183,29 @@ export function listReportsByPatient(
     ...row,
     arteres: arteries.get(row.id) ?? {},
   }));
+}
+
+export function listReportSummaries(
+  db: Database.Database,
+  patientId: number,
+  { limit, offset }: ReportListOptions,
+): ReportSummaryRow[] {
+  return db
+    .prepare(
+      `SELECT id, patient_id, exam_date, created_at FROM reports
+       WHERE patient_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT ? OFFSET ?`,
+    )
+    .all(patientId, limit, offset) as ReportSummaryRow[];
+}
+
+export function countReportsByPatient(
+  db: Database.Database,
+  patientId: number,
+): number {
+  const row = db
+    .prepare("SELECT COUNT(*) AS total FROM reports WHERE patient_id = ?")
+    .get(patientId) as { total: number };
+  return row.total;
 }

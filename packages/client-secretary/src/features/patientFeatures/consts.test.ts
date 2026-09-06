@@ -56,3 +56,23 @@ describe('patientHistoryFieldGroups labels', () => {
     )
   })
 })
+
+describe('patientFormSchema sex', () => {
+  it("accepts the three sex codes, 'O' standing for Autre", () => {
+    for (const sex of ['M', 'F', 'O']) {
+      const result = patientFormSchema.safeParse({
+        ...validPatient('1985-03-12'),
+        sex,
+      })
+      expect(result.success).toBe(true)
+    }
+  })
+
+  it('rejects an unknown sex code', () => {
+    const result = patientFormSchema.safeParse({
+      ...validPatient('1985-03-12'),
+      sex: 'X',
+    })
+    expect(result.success).toBe(false)
+  })
+})

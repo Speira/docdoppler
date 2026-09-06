@@ -15,6 +15,7 @@ export function createConnection(dbPath: string): Database.Database {
   db.exec(readFileSync(SCHEMA_PATH, "utf8"));
   ensureExamDateColumn(db);
   ensureAccessionNumberColumn(db);
+  ensureSexAllowsOther(db);
   return db;
 }
 
@@ -45,6 +46,61 @@ export function ensureAccessionNumberColumn(db: Database.Database): void {
       "ALTER TABLE patients ADD COLUMN accession_number TEXT NOT NULL DEFAULT ''",
     );
     backfillAccessionNumbers(db);
+  }
+}
+
+// The patients table shipped with CHECK (sex IN ('M', 'F')). Widening it to
+// include the DICOM "O" (other) code means rebuilding the table: SQLite has no
+// ALTER TABLE for a CHECK constraint, and `CREATE TABLE IF NOT EXISTS` in
+// schema.sql leaves an existing table's definition alone.
+export function ensureSexAllowsOther(db: Database.Database): void {
+  const row = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'patients'")
+    .get() as { sql: string } | undefined;
+  if (!row) return;
+  const check = /CHECK\s*\(\s*sex\s+IN\s*\(([^)]*)\)/i.exec(row.sql);
+  if (!check || check[1].includes("'O'")) return;
+
+  // Follow SQLite's documented table-redefinition recipe: foreign keys off
+  // (children point at patients(id) and must survive the drop), copy into a new
+  // table, swap the names, then put the trigger back and re-check the keys.
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE patients_new (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name       TEXT NOT NULL,
+        last_name        TEXT NOT NULL,
+        dob              TEXT NOT NULL,
+        sex              TEXT NOT NULL CHECK (sex IN ('M', 'F', 'O')),
+        exam_date        TEXT NOT NULL DEFAULT CURRENT_DATE,
+        accession_number TEXT NOT NULL DEFAULT '',
+        created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO patients_new
+        (id, first_name, last_name, dob, sex, exam_date, accession_number, created_at, updated_at)
+        SELECT id, first_name, last_name, dob, sex, exam_date, accession_number, created_at, updated_at
+        FROM patients;
+      DROP TABLE patients;
+      ALTER TABLE patients_new RENAME TO patients;
+      CREATE TRIGGER IF NOT EXISTS patients_set_updated_at
+      AFTER UPDATE ON patients
+      BEGIN
+        UPDATE patients SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+      COMMIT;
+    `);
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+  const violations = db.pragma("foreign_key_check") as unknown[];
+  if (violations.length > 0) {
+    throw new Error("Migration du sexe : contraintes de clés étrangères rompues.");
   }
 }
 

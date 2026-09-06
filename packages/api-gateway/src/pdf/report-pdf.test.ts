@@ -186,6 +186,20 @@ describe("buildReportPdf", () => {
     );
   });
 
+  it("says the sex is unspecified for the DICOM 'O' code", async () => {
+    const parsed = await parsePdf(
+      await buildReportPdf(
+        makePatient({ sex: "O" }),
+        undefined,
+        makeReport(),
+        makeSettings(),
+      ),
+    );
+    expect(parsed.text).toContain(
+      "Patient(e) : DUPONT Jean, né(e) le 12/03/1958 de sexe non précisé",
+    );
+  });
+
   it("puts the exam date and the doctor on one line", async () => {
     const parsed = await parsePdf(
       await buildReportPdf(makePatient(), undefined, makeReport(), makeSettings()),

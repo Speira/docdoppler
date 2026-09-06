@@ -1,9 +1,17 @@
 import { Router, type Request, type Response } from "express";
 import type Database from "better-sqlite3";
 import { getPatient, getLatestRiskFactors } from "../db/patients.js";
-import { createReport, listReportsByPatient, getReport } from "../db/reports.js";
+import {
+  createReport,
+  countReportsByPatient,
+  listReportSummaries,
+  getReport,
+} from "../db/reports.js";
 import { getSettings } from "../db/settings.js";
-import { validateCreateReport } from "../validation/reports.js";
+import {
+  validateCreateReport,
+  validateReportListQuery,
+} from "../validation/reports.js";
 import { buildReportPdf, buildReportPdfFilename } from "../pdf/report-pdf.js";
 
 function parseId(rawId: string): number | undefined {
@@ -28,13 +36,27 @@ export function createPatientReportsRouter(db: Database.Database): Router {
     res.status(201).json(createReport(db, patientId, result.data));
   });
 
+  // Bounded on purpose: a patient file that has accumulated years of reports
+  // must not turn one page load into an unbounded download. The list carries
+  // the slim projection only; the full report is read one at a time.
   router.get("/", (req: Request, res: Response) => {
     const patientId = parseId(req.params.id as string);
     if (patientId === undefined || !getPatient(db, patientId)) {
       res.status(404).json({ error: "PATIENT_NOT_FOUND" });
       return;
     }
-    res.status(200).json(listReportsByPatient(db, patientId));
+    const result = validateReportListQuery(req.query);
+    if (!result.valid) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    const { limit, offset } = result.data;
+    res.status(200).json({
+      items: listReportSummaries(db, patientId, { limit, offset }),
+      total: countReportsByPatient(db, patientId),
+      limit,
+      offset,
+    });
   });
 
   return router;

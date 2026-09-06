@@ -53,6 +53,11 @@ describe("validateCreatePatient", () => {
     expect(result).toEqual({ valid: false, error: "SEX_REQUIRED" });
   });
 
+  it("accepts the DICOM 'O' sex code", () => {
+    const result = validateCreatePatient({ ...valid, sex: "O" });
+    expect(result.valid).toBe(true);
+  });
+
   it("rejects an invalid sex", () => {
     const result = validateCreatePatient({ ...valid, sex: "X" });
     expect(result).toEqual({ valid: false, error: "SEX_INVALID" });
@@ -98,6 +103,11 @@ describe("validateUpdatePatient", () => {
   it("rejects an empty string for a provided field", () => {
     const result = validateUpdatePatient({ first_name: "" });
     expect(result).toEqual({ valid: false, error: "FIRST_NAME_REQUIRED" });
+  });
+
+  it("accepts the DICOM 'O' sex code", () => {
+    const result = validateUpdatePatient({ sex: "O" });
+    expect(result.valid).toBe(true);
   });
 
   it("rejects an invalid sex", () => {

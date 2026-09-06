@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { validateCreateReport } from "./reports.js";
+import {
+  REPORT_LIST_DEFAULT_LIMIT,
+  REPORT_LIST_MAX_LIMIT,
+  validateCreateReport,
+  validateReportListQuery,
+} from "./reports.js";
 
 describe("validateCreateReport", () => {
   const valid = { doctor_name: "Dr. Martin", exam_date: "2026-08-13" };
@@ -227,6 +232,79 @@ describe("validateCreateReport", () => {
           membres_inferieurs: { arteres: { droite: { afc: null } } },
         }).valid,
       ).toBe(true);
+    });
+  });
+});
+
+describe("validateReportListQuery", () => {
+  it("defaults to the first page when nothing is asked for", () => {
+    expect(validateReportListQuery({})).toEqual({
+      valid: true,
+      data: { limit: REPORT_LIST_DEFAULT_LIMIT, offset: 0 },
+    });
+    expect(validateReportListQuery(undefined).valid).toBe(true);
+  });
+
+  it("honours a well-formed limit and offset", () => {
+    expect(validateReportListQuery({ limit: "5", offset: "10" })).toEqual({
+      valid: true,
+      data: { limit: 5, offset: 10 },
+    });
+  });
+
+  it("treats an empty value as absent", () => {
+    expect(validateReportListQuery({ limit: "", offset: "" })).toEqual({
+      valid: true,
+      data: { limit: REPORT_LIST_DEFAULT_LIMIT, offset: 0 },
+    });
+  });
+
+  it("clamps an oversized limit instead of failing the request", () => {
+    expect(validateReportListQuery({ limit: "5000" })).toEqual({
+      valid: true,
+      data: { limit: REPORT_LIST_MAX_LIMIT, offset: 0 },
+    });
+  });
+
+  it("rejects a limit of zero, which could never make progress", () => {
+    expect(validateReportListQuery({ limit: "0" })).toEqual({
+      valid: false,
+      error: "REPORT_PAGINATION_INVALID",
+    });
+  });
+
+  it("accepts an offset of zero", () => {
+    expect(validateReportListQuery({ offset: "0" }).valid).toBe(true);
+  });
+
+  it("rejects non-numeric, negative and fractional values", () => {
+    for (const query of [
+      { limit: "abc" },
+      { limit: "-1" },
+      { limit: "1.5" },
+      { limit: "1e3" },
+      { offset: "abc" },
+      { offset: "-1" },
+      { offset: "2.5" },
+    ]) {
+      expect(validateReportListQuery(query)).toEqual({
+        valid: false,
+        error: "REPORT_PAGINATION_INVALID",
+      });
+    }
+  });
+
+  it("rejects a repeated query param, which arrives as an array", () => {
+    expect(validateReportListQuery({ limit: ["1", "2"] })).toEqual({
+      valid: false,
+      error: "REPORT_PAGINATION_INVALID",
+    });
+  });
+
+  it("rejects an integer beyond safe precision", () => {
+    expect(validateReportListQuery({ offset: "9007199254740993" })).toEqual({
+      valid: false,
+      error: "REPORT_PAGINATION_INVALID",
     });
   });
 });

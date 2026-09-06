@@ -26,7 +26,7 @@ export interface PatientRow {
   first_name: string;
   last_name: string;
   dob: string;
-  sex: "M" | "F";
+  sex: "M" | "F" | "O";
   exam_date: string;
   accession_number: string;
   created_at: string;
@@ -75,7 +75,7 @@ export interface CreatePatientInput {
   first_name: string;
   last_name: string;
   dob: string;
-  sex: "M" | "F";
+  sex: "M" | "F" | "O";
   exam_date: string;
 }
 

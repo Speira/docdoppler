@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createConnection } from "./index.js";
 import { createPatient } from "./patients.js";
-import { createReport, getReport, listReportsByPatient } from "./reports.js";
+import {
+  countReportsByPatient,
+  createReport,
+  getReport,
+  listReportSummaries,
+  listReportsByPatient,
+} from "./reports.js";
 import type { CreateReportInput } from "./reports.js";
 import type { Spectre } from "@speira-docdoppler/shared-labels";
 
@@ -168,5 +174,97 @@ describe("reports data access", () => {
       }),
     ).toThrow();
     expect(listReportsByPatient(db, patient.id)).toHaveLength(0);
+  });
+});
+
+describe("listReportSummaries", () => {
+  function seed(db: ReturnType<typeof createConnection>, count: number) {
+    const patient = makePatient(db);
+    const ids = [];
+    for (let i = 0; i < count; i += 1) {
+      ids.push(createReport(db, patient.id, MINIMAL_INPUT).id);
+    }
+    return { patient, ids };
+  }
+
+  it("returns only the slim projection, never the artery join", () => {
+    const db = createConnection(":memory:");
+    const patient = makePatient(db);
+    createReport(db, patient.id, {
+      ...FULL_INPUT,
+      mi_arteres: { droite: { afc: { vsm: 90, spectre: "triphasique" } } },
+    });
+
+    const [row] = listReportSummaries(db, patient.id, { limit: 10, offset: 0 });
+
+    expect(Object.keys(row).sort()).toEqual([
+      "created_at",
+      "exam_date",
+      "id",
+      "patient_id",
+    ]);
+    expect(row).not.toHaveProperty("arteres");
+    expect(row).not.toHaveProperty("tsa_findings_text");
+    expect(row).not.toHaveProperty("conclusion");
+  });
+
+  it("keeps the newest-first ordering of the full list", () => {
+    const db = createConnection(":memory:");
+    const { patient } = seed(db, 3);
+
+    const summaries = listReportSummaries(db, patient.id, { limit: 10, offset: 0 });
+
+    expect(summaries.map((r) => r.id)).toEqual(
+      listReportsByPatient(db, patient.id).map((r) => r.id),
+    );
+  });
+
+  it("honours limit and offset", () => {
+    const db = createConnection(":memory:");
+    const { patient } = seed(db, 5);
+    const all = listReportSummaries(db, patient.id, { limit: 10, offset: 0 });
+
+    expect(listReportSummaries(db, patient.id, { limit: 2, offset: 0 })).toEqual(
+      all.slice(0, 2),
+    );
+    expect(listReportSummaries(db, patient.id, { limit: 2, offset: 2 })).toEqual(
+      all.slice(2, 4),
+    );
+  });
+
+  it("returns an empty page past the end", () => {
+    const db = createConnection(":memory:");
+    const { patient } = seed(db, 2);
+    expect(listReportSummaries(db, patient.id, { limit: 10, offset: 99 })).toEqual([]);
+  });
+
+  it("does not leak another patient's reports", () => {
+    const db = createConnection(":memory:");
+    const { patient } = seed(db, 2);
+    const other = createPatient(db, {
+      first_name: "Alice",
+      last_name: "Martin",
+      dob: "1980-01-01",
+      sex: "F",
+      exam_date: "2026-08-13",
+    });
+    expect(listReportSummaries(db, other.id, { limit: 10, offset: 0 })).toEqual([]);
+    expect(listReportSummaries(db, patient.id, { limit: 10, offset: 0 })).toHaveLength(2);
+  });
+});
+
+describe("countReportsByPatient", () => {
+  it("counts every report the patient has, not just the current page", () => {
+    const db = createConnection(":memory:");
+    const patient = makePatient(db);
+    for (let i = 0; i < 12; i += 1) createReport(db, patient.id, MINIMAL_INPUT);
+
+    expect(countReportsByPatient(db, patient.id)).toBe(12);
+    expect(listReportSummaries(db, patient.id, { limit: 10, offset: 0 })).toHaveLength(10);
+  });
+
+  it("is zero for a patient with no reports", () => {
+    const db = createConnection(":memory:");
+    expect(countReportsByPatient(db, makePatient(db).id)).toBe(0);
   });
 });

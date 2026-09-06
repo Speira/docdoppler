@@ -14,7 +14,8 @@ export type ReportValidationErrorCode =
   | "DOCTOR_NAME_REQUIRED"
   | "EXAM_DATE_REQUIRED"
   | "EXAM_DATE_INVALID"
-  | "REPORT_FIELD_INVALID";
+  | "REPORT_FIELD_INVALID"
+  | "REPORT_PAGINATION_INVALID";
 
 export type ReportValidationResult<T> =
   | { valid: true; data: T }
@@ -133,5 +134,60 @@ export function validateCreateReport(
       exam_date: b.exam_date,
       ...fields,
     } as unknown as CreateReportInput,
+  };
+}
+
+/** How many reports a list request returns when it doesn't say. */
+export const REPORT_LIST_DEFAULT_LIMIT = 10;
+
+/** The most any single request can pull, however large a limit it asks for. */
+export const REPORT_LIST_MAX_LIMIT = 100;
+
+export interface ReportListQuery {
+  limit: number;
+  offset: number;
+}
+
+const WHOLE_NUMBER_PATTERN = /^\d+$/;
+
+/**
+ * Malformed and oversized are different failures, so they get different
+ * answers: `?limit=abc` is a client bug and is rejected, while `?limit=5000`
+ * is a legitimate ask the server declines to fully honour and is clamped to
+ * `REPORT_LIST_MAX_LIMIT`. The response echoes the limit actually applied so
+ * the caller can see which it got.
+ */
+function parseWholeNumber(value: unknown): number | undefined | typeof INVALID {
+  if (value === undefined || value === "") return undefined;
+  if (typeof value !== "string") return INVALID;
+  const trimmed = value.trim();
+  if (!WHOLE_NUMBER_PATTERN.test(trimmed)) return INVALID;
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) ? parsed : INVALID;
+}
+
+export function validateReportListQuery(
+  query: unknown,
+): ReportValidationResult<ReportListQuery> {
+  const q = (query ?? {}) as Record<string, unknown>;
+
+  const rawLimit = parseWholeNumber(q.limit);
+  const rawOffset = parseWholeNumber(q.offset);
+  if (rawLimit === INVALID || rawOffset === INVALID) {
+    return { valid: false, error: "REPORT_PAGINATION_INVALID" };
+  }
+  // A page of zero rows is a request that can never make progress, so it is
+  // treated as malformed rather than clamped up to something the caller
+  // didn't ask for.
+  if (rawLimit === 0) {
+    return { valid: false, error: "REPORT_PAGINATION_INVALID" };
+  }
+
+  return {
+    valid: true,
+    data: {
+      limit: Math.min(rawLimit ?? REPORT_LIST_DEFAULT_LIMIT, REPORT_LIST_MAX_LIMIT),
+      offset: rawOffset ?? 0,
+    },
   };
 }

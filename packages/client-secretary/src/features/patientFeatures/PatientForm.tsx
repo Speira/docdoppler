@@ -4,18 +4,34 @@ import { patientHistoryFieldGroups } from './consts'
 import { PatientListHelper } from './PatientListHelper'
 import type { PatientFormApi } from './usePatientForm'
 import type { Sex } from '#/services/patient-service'
-import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Checkbox } from '#/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '#/components/ui/radio-group'
 
+type Translate = ReturnType<typeof useTranslation>['t']
+
 const riskFactorKeys = patientHistoryFieldGroups.flatMap((group) =>
   group.fields.map((field) => field.key),
 )
 
+const SEX_OPTIONS: { value: Sex; label: string }[] = [
+  { value: 'F', label: 'Féminin' },
+  { value: 'M', label: 'Masculin' },
+  { value: 'O', label: 'Autre' },
+]
+
 function today(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+/** Validation messages are French strings, so they double as their own key. */
+function fieldErrorText(errors: ReadonlyArray<unknown>, t: Translate): string {
+  return errors
+    .map((error) => (error as { message?: string } | undefined)?.message)
+    .filter((message): message is string => Boolean(message))
+    .map((message) => t(message))
+    .join(', ')
 }
 
 export function PatientForm({ form }: { form: PatientFormApi }) {
@@ -23,67 +39,77 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-primary">{t('Identité')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section
+        aria-labelledby="patient-identity-title"
+        className="island-shell @container rounded-2xl p-5 lg:p-6"
+      >
+        <h2 id="patient-identity-title" className="island-kicker">
+          {t('Identité')}
+        </h2>
+
+        <div className="mt-4 grid gap-4 @md:grid-cols-2">
           <form.Field name="first_name">
-            {(field) => (
-              <div className="grid gap-2">
-                <Label htmlFor={field.name}>
-                  {t('Prénom')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={!field.state.meta.isValid}
-                />
-                {field.state.meta.isTouched && !field.state.meta.isValid && (
-                  <p className="text-sm text-destructive">
-                    {field.state.meta.errors
-                      .map((error) =>
-                        error?.message ? t(error.message) : error?.message,
-                      )
-                      .join(', ')}
-                  </p>
-                )}
-              </div>
-            )}
+            {(field) => {
+              const showError =
+                field.state.meta.isTouched && !field.state.meta.isValid
+              return (
+                <div className="grid gap-2">
+                  <Label htmlFor={field.name}>
+                    {t('Prénom')} <RequiredMark t={t} />
+                  </Label>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    autoComplete="off"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={!field.state.meta.isValid}
+                    aria-describedby={showError ? `${field.name}-error` : undefined}
+                  />
+                  {showError && (
+                    <p id={`${field.name}-error`} className="text-sm text-destructive">
+                      {fieldErrorText(field.state.meta.errors, t)}
+                    </p>
+                  )}
+                </div>
+              )
+            }}
           </form.Field>
 
           <form.Field name="last_name">
-            {(field) => (
-              <div className="grid gap-2">
-                <Label htmlFor={field.name}>
-                  {t('Nom')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={!field.state.meta.isValid}
-                />
-                {field.state.meta.isTouched && !field.state.meta.isValid && (
-                  <p className="text-sm text-destructive">
-                    {field.state.meta.errors
-                      .map((error) =>
-                        error?.message ? t(error.message) : error?.message,
-                      )
-                      .join(', ')}
-                  </p>
-                )}
-              </div>
-            )}
+            {(field) => {
+              const showError =
+                field.state.meta.isTouched && !field.state.meta.isValid
+              return (
+                <div className="grid gap-2">
+                  <Label htmlFor={field.name}>
+                    {t('Nom')} <RequiredMark t={t} />
+                  </Label>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    autoComplete="off"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={!field.state.meta.isValid}
+                    aria-describedby={showError ? `${field.name}-error` : undefined}
+                  />
+                  {showError && (
+                    <p id={`${field.name}-error`} className="text-sm text-destructive">
+                      {fieldErrorText(field.state.meta.errors, t)}
+                    </p>
+                  )}
+                </div>
+              )
+            }}
           </form.Field>
 
           <form.Field name="dob">
             {(field) => {
+              const showError =
+                field.state.meta.isTouched && !field.state.meta.isValid
               const age = field.state.value
                 ? PatientListHelper.calculateAge(field.state.value)
                 : null
@@ -92,8 +118,7 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
               return (
                 <div className="grid gap-2">
                   <Label htmlFor={field.name}>
-                    {t('Date de naissance')}{' '}
-                    <span className="text-destructive">*</span>
+                    {t('Date de naissance')} <RequiredMark t={t} />
                   </Label>
                   <Input
                     id={field.name}
@@ -104,19 +129,24 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={!field.state.meta.isValid}
+                    aria-describedby={showError ? `${field.name}-error` : undefined}
                   />
-                  {field.state.meta.isTouched && !field.state.meta.isValid && (
-                    <p className="text-sm text-destructive">
-                      {field.state.meta.errors
-                        .map((error) =>
-                          error?.message ? t(error.message) : error?.message,
-                        )
-                        .join(', ')}
+                  {showError && (
+                    <p id={`${field.name}-error`} className="text-sm text-destructive">
+                      {fieldErrorText(field.state.meta.errors, t)}
                     </p>
                   )}
-                  {showMinorWarning && (
-                    <p className="text-sm text-amber-600 dark:text-amber-500">
-                      {t('Patient mineur ({{age}} ans)', { age })}
+                  {!showError && age !== null && field.state.meta.isValid && (
+                    <p
+                      className={
+                        showMinorWarning
+                          ? 'text-sm text-amber-700'
+                          : 'row-meta text-sm'
+                      }
+                    >
+                      {showMinorWarning
+                        ? t('Patient mineur ({{age}} ans)', { age })
+                        : t('{{age}} ans', { age })}
                     </p>
                   )}
                 </div>
@@ -125,106 +155,142 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
           </form.Field>
 
           <form.Field name="exam_date">
-            {(field) => (
-              <div className="grid gap-2">
-                <Label htmlFor={field.name}>
-                  {t("Date de l'examen")}{' '}
-                  <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="date"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={!field.state.meta.isValid}
-                />
-                {field.state.meta.isTouched && !field.state.meta.isValid && (
-                  <p className="text-sm text-destructive">
-                    {field.state.meta.errors
-                      .map((error) =>
-                        error?.message ? t(error.message) : error?.message,
-                      )
-                      .join(', ')}
-                  </p>
-                )}
-              </div>
-            )}
+            {(field) => {
+              const showError =
+                field.state.meta.isTouched && !field.state.meta.isValid
+              return (
+                <div className="grid gap-2">
+                  <Label htmlFor={field.name}>
+                    {t("Date de l'examen")} <RequiredMark t={t} />
+                  </Label>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    type="date"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={!field.state.meta.isValid}
+                    aria-describedby={showError ? `${field.name}-error` : undefined}
+                  />
+                  {showError && (
+                    <p id={`${field.name}-error`} className="text-sm text-destructive">
+                      {fieldErrorText(field.state.meta.errors, t)}
+                    </p>
+                  )}
+                </div>
+              )
+            }}
           </form.Field>
 
           <form.Field name="sex">
             {(field) => (
-              <div className="grid gap-2">
-                <Label>{t('Sexe')}</Label>
+              <div className="grid gap-2 @md:col-span-2">
+                {/* A <span> rather than a <label>: the group is labelled through
+                    aria-labelledby, since a label with no single control to
+                    point at is meaningless to a screen reader. */}
+                <span
+                  id="patient-sex-label"
+                  className="text-sm leading-none font-medium"
+                >
+                  {t('Sexe')}
+                </span>
                 <RadioGroup
+                  aria-labelledby="patient-sex-label"
                   value={field.state.value}
                   onValueChange={(v) => field.handleChange(v as Sex)}
-                  className="flex gap-6"
+                  className="flex flex-wrap gap-x-6 gap-y-2"
                 >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem id="sex-f" value="F" />
-                    <Label htmlFor="sex-f" className="font-normal">
-                      {t('Féminin')}
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem id="sex-m" value="M" />
-                    <Label htmlFor="sex-m" className="font-normal">
-                      {t('Masculin')}
-                    </Label>
-                  </div>
+                  {SEX_OPTIONS.map((option) => (
+                    <div key={option.value} className="flex items-center gap-2">
+                      <RadioGroupItem
+                        id={`sex-${option.value.toLowerCase()}`}
+                        value={option.value}
+                      />
+                      <Label
+                        htmlFor={`sex-${option.value.toLowerCase()}`}
+                        className="font-normal"
+                      >
+                        {t(option.label)}
+                      </Label>
+                    </div>
+                  ))}
                 </RadioGroup>
               </div>
             )}
           </form.Field>
-          <br />
-          <p className="text-xs text-muted-foreground">
-            <span className="text-destructive">*</span> {t('champ requis')}
-          </p>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-primary">
-            <span>{t('Antécédents médicaux')}</span>
-            <form.Subscribe
-              selector={(state) =>
-                riskFactorKeys.filter((key) => state.values[key]).length
-              }
-            >
-              {(count) => (
-                <span className="text-sm font-normal text-muted-foreground">
-                  {t('{{count}} sélectionné(s)', { count })}
-                </span>
-              )}
-            </form.Subscribe>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
+        <p className="row-meta mt-5 text-xs">
+          <span className="text-destructive">*</span> {t('champ requis')}
+        </p>
+      </section>
+
+      <section
+        aria-labelledby="patient-history-title"
+        className="island-shell @container rounded-2xl p-5 lg:p-6"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="patient-history-title" className="island-kicker">
+            {t('Antécédents médicaux')}
+          </h2>
+          <form.Subscribe
+            selector={(state) =>
+              riskFactorKeys.filter((key) => state.values[key]).length
+            }
+          >
+            {(selected) => (
+              <span
+                className={
+                  selected > 0
+                    ? 'status-chip status-chip--ready'
+                    : 'status-chip status-chip--pending'
+                }
+              >
+                {selected > 0
+                  ? t('{{selected}} antécédent{{plural}} coché{{plural}}', {
+                      selected,
+                      plural: PatientListHelper.pluralSuffix(selected),
+                    })
+                  : t('Aucun antécédent coché')}
+              </span>
+            )}
+          </form.Subscribe>
+        </div>
+
+        <div className="mt-4 space-y-5">
           {patientHistoryFieldGroups.map((group) => (
-            <div key={group.title} className="grid gap-3">
-              <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+            <fieldset key={group.title}>
+              <legend className="row-meta mb-2 text-xs font-semibold">
                 {t(group.title)}
-              </h3>
-              {group.fields.map(({ key, label }) => (
-                <form.Field key={key} name={key}>
-                  {(field) => (
-                    <label className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-secondary/50">
-                      <Checkbox
-                        checked={field.state.value as boolean}
-                        onCheckedChange={(v) => field.handleChange(v === true)}
-                      />
-                      <span className="text-sm font-medium">{t(label)}</span>
-                    </label>
-                  )}
-                </form.Field>
-              ))}
-            </div>
+              </legend>
+              <div className="grid gap-2 @md:grid-cols-2">
+                {group.fields.map(({ key, label }) => (
+                  <form.Field key={key} name={key}>
+                    {(field) => (
+                      <label className="risk-toggle">
+                        <Checkbox
+                          checked={field.state.value as boolean}
+                          onCheckedChange={(v) => field.handleChange(v === true)}
+                        />
+                        <span className="text-sm font-medium">{t(label)}</span>
+                      </label>
+                    )}
+                  </form.Field>
+                ))}
+              </div>
+            </fieldset>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
+  )
+}
+
+function RequiredMark({ t }: { t: Translate }) {
+  return (
+    <span className="text-destructive" title={t('champ requis')}>
+      *
+    </span>
   )
 }

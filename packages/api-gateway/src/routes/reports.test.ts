@@ -116,6 +116,17 @@ describe("patient reports routes", () => {
   });
 
   describe("GET /patients/:id/reports", () => {
+    async function addReports(patientId: number, count: number) {
+      const ids: number[] = [];
+      for (let i = 0; i < count; i += 1) {
+        const response = await supertest(app)
+          .post(`/patients/${patientId}/reports`)
+          .send({ doctor_name: "Dr. Martin", exam_date: "2026-08-13" });
+        ids.push(response.body.id);
+      }
+      return ids;
+    }
+
     it("lists a patient's reports newest first", async () => {
       const patient = await createTestPatient();
       await supertest(app)
@@ -126,19 +137,99 @@ describe("patient reports routes", () => {
         .send({ doctor_name: "Dr. Leroy", exam_date: "2026-08-14" });
       const response = await supertest(app).get(`/patients/${patient.id}/reports`);
       expect(response.status).toBe(200);
-      expect(response.body[0].id).toBe(second.body.id);
-      expect(response.body).toHaveLength(2);
+      expect(response.body.items[0].id).toBe(second.body.id);
+      expect(response.body.items).toHaveLength(2);
+      expect(response.body.total).toBe(2);
     });
 
-    it("returns an empty array when a patient has no reports", async () => {
+    it("returns an empty page when a patient has no reports", async () => {
       const patient = await createTestPatient();
       const response = await supertest(app).get(`/patients/${patient.id}/reports`);
       expect(response.status).toBe(200);
-      expect(response.body).toEqual([]);
+      expect(response.body).toEqual({ items: [], total: 0, limit: 10, offset: 0 });
+    });
+
+    it("returns only the slim projection, without artery data", async () => {
+      const patient = await createTestPatient();
+      await supertest(app)
+        .post(`/patients/${patient.id}/reports`)
+        .send({
+          doctor_name: "Dr. Martin",
+          exam_date: "2026-08-13",
+          tsa: { findings_text: "Plaque modérée" },
+          membres_inferieurs: {
+            arteres: { droite: { afc: { vsm: 90, spectre: "triphasique" } } },
+          },
+        });
+
+      const response = await supertest(app).get(`/patients/${patient.id}/reports`);
+
+      expect(Object.keys(response.body.items[0]).sort()).toEqual([
+        "created_at",
+        "exam_date",
+        "id",
+        "patient_id",
+      ]);
+    });
+
+    it("applies the default limit and reports the true total", async () => {
+      const patient = await createTestPatient();
+      await addReports(patient.id, 12);
+
+      const response = await supertest(app).get(`/patients/${patient.id}/reports`);
+
+      expect(response.body.items).toHaveLength(10);
+      expect(response.body.total).toBe(12);
+      expect(response.body.limit).toBe(10);
+      expect(response.body.offset).toBe(0);
+    });
+
+    it("honours limit and offset and keeps the pages contiguous", async () => {
+      const patient = await createTestPatient();
+      await addReports(patient.id, 5);
+
+      const all = await supertest(app).get(`/patients/${patient.id}/reports`);
+      const page = await supertest(app).get(
+        `/patients/${patient.id}/reports?limit=2&offset=2`,
+      );
+
+      expect(page.status).toBe(200);
+      expect(page.body.items.map((r: { id: number }) => r.id)).toEqual(
+        all.body.items.slice(2, 4).map((r: { id: number }) => r.id),
+      );
+      expect(page.body.total).toBe(5);
+      expect(page.body.limit).toBe(2);
+      expect(page.body.offset).toBe(2);
+    });
+
+    it("clamps an oversized limit and echoes the one applied", async () => {
+      const patient = await createTestPatient();
+      const response = await supertest(app).get(
+        `/patients/${patient.id}/reports?limit=5000`,
+      );
+      expect(response.status).toBe(200);
+      expect(response.body.limit).toBe(100);
+    });
+
+    it("returns 400 for a malformed limit or offset", async () => {
+      const patient = await createTestPatient();
+      for (const query of ["limit=abc", "limit=0", "limit=-1", "offset=x", "offset=-2"]) {
+        const response = await supertest(app).get(
+          `/patients/${patient.id}/reports?${query}`,
+        );
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: "REPORT_PAGINATION_INVALID" });
+      }
     });
 
     it("returns 404 for an unknown patient", async () => {
       const response = await supertest(app).get("/patients/999/reports");
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
+    });
+
+    it("returns 404 (not 400) for an unknown patient with a bad query", async () => {
+      const response = await supertest(app).get("/patients/999/reports?limit=abc");
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: "PATIENT_NOT_FOUND" });
     });

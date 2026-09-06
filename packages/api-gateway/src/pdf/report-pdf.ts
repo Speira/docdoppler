@@ -108,6 +108,20 @@ function formatDateFR(isoDate: string | null): string {
   );
 }
 
+// "O" is the DICOM code for a sex that is neither M nor F; it renders as the
+// epicene "né(e)" and as "non précisé" rather than forcing a gendered form.
+function bornLabel(sex: PatientRow["sex"]): string {
+  if (sex === "F") return "née";
+  if (sex === "M") return "né";
+  return "né(e)";
+}
+
+function sexLabel(sex: PatientRow["sex"]): string {
+  if (sex === "F") return "féminin";
+  if (sex === "M") return "masculin";
+  return "non précisé";
+}
+
 function sanitizeForFilename(value: string): string {
   return value
     .normalize("NFD")
@@ -240,7 +254,7 @@ export async function buildReportPdf(
   // Repeated at the top of every continuation page: a loose second sheet has
   // to be identifiable on its own.
   const continuationHeader =
-    `${patientIdentity} — ${patient.sex === "F" ? "née" : "né"} le ${formatDateFR(patient.dob)}` +
+    `${patientIdentity} — ${bornLabel(patient.sex)} le ${formatDateFR(patient.dob)}` +
     ` — examen du ${formatDateFR(report.exam_date)}`;
 
   const startContinuationPage = () => {
@@ -465,7 +479,7 @@ export async function buildReportPdf(
   // heading above it, and it is not bold.
   drawWrapped(
     `Patient(e) : ${patientIdentity}, né(e) le ${formatDateFR(patient.dob)}` +
-      ` de sexe ${patient.sex === "F" ? "féminin" : "masculin"}`,
+      ` de sexe ${sexLabel(patient.sex)}`,
     10,
   );
   // The referring physician belongs with the patient's identity, not with the
