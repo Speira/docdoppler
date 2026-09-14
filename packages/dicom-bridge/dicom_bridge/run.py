@@ -2,6 +2,13 @@ from pynetdicom import AE, evt
 from pynetdicom.sop_class import ModalityWorklistInformationFind, Verification
 
 from . import config
+from .logging_setup import (
+    configure_logging,
+    log_association_accepted,
+    log_association_rejected,
+    log_connection_open,
+    logger,
+)
 from .scp import handle_echo, handle_find
 
 
@@ -27,22 +34,29 @@ def security_warning() -> str | None:
 
 
 def main() -> None:
+    configure_logging()
     ae = build_ae()
 
     handlers = [
+        (evt.EVT_CONN_OPEN, log_connection_open),
+        (evt.EVT_ACCEPTED, log_association_accepted),
+        (evt.EVT_REJECTED, log_association_rejected),
         (evt.EVT_C_ECHO, handle_echo),
         (evt.EVT_C_FIND, handle_find),
     ]
 
-    print(
-        f"DICOM Worklist Bridge listening on {config.BIND_HOST}:{config.PORT}, "
-        f"AE title {config.AE_TITLE}, "
-        f"require_called_aet={config.REQUIRE_CALLED_AET}, "
-        f"allowed_calling_aets={config.ALLOWED_CALLING_AETS or 'any'}"
+    logger.info(
+        "DICOM Worklist Bridge listening on %s:%s, AE title %s, "
+        "require_called_aet=%s, allowed_calling_aets=%s",
+        config.BIND_HOST,
+        config.PORT,
+        config.AE_TITLE,
+        config.REQUIRE_CALLED_AET,
+        config.ALLOWED_CALLING_AETS or "any",
     )
     warning = security_warning()
     if warning:
-        print(warning)
+        logger.warning(warning)
     ae.start_server(
         (config.BIND_HOST, config.PORT), evt_handlers=handlers, block=True
     )

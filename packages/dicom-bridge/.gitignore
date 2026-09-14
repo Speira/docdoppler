@@ -1,0 +1,2 @@
+# Received DICOM SRs contain patient data — never commit them.
+data/

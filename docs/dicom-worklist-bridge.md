@@ -47,6 +47,65 @@ the on-site Mindray test below — nothing here confirms Mindray-side
 behavior (its actual calling AE title, whether it honors
 `ScheduledStationAETitle`, etc.).
 
+## Storage SCP added (2026-09-06)
+
+`packages/dicom-bridge` now also implements a **Storage SCP** — a second,
+separate service alongside the worklist one:
+
+- `dicom_bridge.run_store`, AE title `DOCDOPPLER-STORE`, port `11113`
+  (`BRIDGE_STORE_AE_TITLE` / `BRIDGE_STORE_PORT`). Separate from the
+  worklist SCP's `DOCDOPPLER:11112` because the ME8 conformance statement
+  (Table 5, Modality AE SOP Classes) lists Storage and Worklist as distinct
+  SOP classes, which the Mindray configures as separate DICOM services.
+- Accepts Comprehensive SR Storage (`1.2.840.10008.5.1.4.1.1.88.33`) and
+  Verification. Reuses the existing `BRIDGE_ALLOWED_CALLING_AETS`,
+  `BRIDGE_BIND_HOST` and `BRIDGE_REQUIRE_CALLED_AET` config — same peer,
+  same policy — including the startup warning when the allowlist is unset.
+- Writes each received instance verbatim to
+  `data/received_sr/<StudyInstanceUID>/<SOPInstanceUID>.dcm` (`BRIDGE_STORE_DIR`,
+  gitignored — received SRs contain patient data). Grouping by study keeps
+  an exam's reports together; naming by SOP instance means a study with
+  several SRs keeps all of them while a re-sent instance overwrites itself.
+  UIDs are validated as digits-and-dots before being used as path components.
+
+**It deliberately does not parse the SR.** Reading measurement values out of
+a received report is a separate task, gated on having a real ME8 export to
+validate against — until then there is nothing to check a parser's output
+for. The first real export from the on-site test is that fixture.
+
+**Logging (2026-09-11):** both SCPs were silent — no startup detail, no
+association logging, nothing on receipt — so "the modality never connected",
+"its association was rejected" and "it offered a SOP class we don't support"
+all presented as an empty terminal. `dicom_bridge/logging_setup.py` now
+configures logging for both and registers `EVT_CONN_OPEN` / `EVT_ACCEPTED` /
+`EVT_REJECTED` handlers, and `handle_store` logs every stored instance and
+every refusal. `BRIDGE_LOG_LEVEL=DEBUG` adds pynetdicom's full negotiation
+trace. Troubleshooting table in `packages/dicom-bridge/README.md`.
+
+**On-site 2026-09-11:** C-ECHO from the real ME8 to the storage SCP succeeds
+(association from `192.168.1.196` as AE `mindray`). Triggering a send on an
+exam initially produced no connection attempt at all. Root cause was
+Mindray-side, not ours: the Stockage service entry's **"Option stockage SR"**
+was set to `Pas stocker SR`, so no storage job was ever created. It must be
+`Enr. seulement rapport structuré` — *not* `Joindre SR lors de l'enr. images`,
+which would also push ultrasound images that `run_store.py` deliberately does
+not accept. Details in `packages/dicom-bridge/README.md`.
+
+Status: **validated against the real ME8 on 2026-09-11** — first real SR
+received and stored (Comprehensive SR, DCMR TID 5100, *Vascular Ultrasound
+Procedure Report*, 16 NUM measurements). The SR carries back the
+`StudyInstanceUID` our own worklist response generated, plus `PatientID` and
+`AccessionNumber`, so incoming SRs match a `patients` row exactly. What the
+export actually contains — and why it does not map cleanly onto the `reports`
+fields — is written up in `packages/dicom-bridge/README.md`; read it before
+starting the parsing task.
+
+Superseded status: loopback-tested only (`tests/test_store_scp.py` runs a real C-STORE
+association over 127.0.0.1 with a synthetic TID 5100-shaped vascular
+ultrasound SR). Nothing has been tried against the real ME8 — checklist in
+`packages/dicom-bridge/README.md`. Like the worklist SCP, this is **not**
+wired into the main app flow.
+
 ## Confirmed Mindray configuration (verified on-site 2026-07-28)
 
 - DICOM Liste de travail (MWL): Installé — no license purchase needed

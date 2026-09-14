@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 AE_TITLE = os.environ.get("BRIDGE_AE_TITLE", "DOCDOPPLER")
 PORT = int(os.environ.get("BRIDGE_PORT", "11112"))
@@ -26,3 +27,21 @@ ALLOWED_CALLING_AETS = [
     for aet in os.environ.get("BRIDGE_ALLOWED_CALLING_AETS", "").split(",")
     if aet.strip()
 ]
+
+# Storage SCP (Comprehensive SR from the Mindray). Deliberately a separate AE
+# title and port from the worklist SCP above: the ME8 conformance statement
+# lists Storage and Worklist as distinct SOP classes, configured as separate
+# DICOM services on the Mindray side. The calling-AE allowlist, bind host and
+# called-AE flag above are shared by both services — same peer, same policy.
+STORE_AE_TITLE = os.environ.get("BRIDGE_STORE_AE_TITLE", "DOCDOPPLER-STORE")
+STORE_PORT = int(os.environ.get("BRIDGE_STORE_PORT", "11113"))
+
+# Received SRs land under the package directory rather than the process's cwd,
+# so the files are in a predictable place whichever directory the SCP is
+# started from.
+STORE_DIR = Path(
+    os.environ.get(
+        "BRIDGE_STORE_DIR",
+        Path(__file__).resolve().parent.parent / "data" / "received_sr",
+    )
+)
