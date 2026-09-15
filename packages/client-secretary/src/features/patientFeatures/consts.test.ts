@@ -43,6 +43,35 @@ describe('patientFormSchema dob', () => {
     const result = patientFormSchema.safeParse(validPatient(''))
     expect(result.success).toBe(false)
   })
+
+  function dobMessages(dob: string): string[] {
+    const result = patientFormSchema.safeParse(validPatient(dob))
+    return result.success
+      ? []
+      : result.error.issues
+          .filter((issue) => issue.path[0] === 'dob')
+          .map((issue) => issue.message)
+  }
+
+  it('reports only "requise" for an empty date of birth', () => {
+    expect(dobMessages('')).toEqual(['La date de naissance est requise.'])
+  })
+
+  it('rejects a date that does not exist on the calendar', () => {
+    expect(dobMessages('1980-02-31')).toEqual([
+      'La date de naissance est invalide.',
+    ])
+  })
+
+  it('rejects a year before 1900', () => {
+    expect(dobMessages('1899-12-31')).toEqual([
+      "L'année de naissance doit être 1900 ou après.",
+    ])
+  })
+
+  it('accepts 1 January 1900', () => {
+    expect(dobMessages('1900-01-01')).toEqual([])
+  })
 })
 
 describe('patientHistoryFieldGroups labels', () => {

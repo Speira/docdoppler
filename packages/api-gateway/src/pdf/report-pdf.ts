@@ -8,9 +8,8 @@ import {
   MI_SIDES,
   MI_SIDE_LABELS,
   REPORT_SECTION_LABELS,
-  RISK_FACTOR_KEYS,
-  RISK_FACTOR_LABELS,
   fluxForSpectre,
+  formatRiskFactorList,
 } from "@speira-docdoppler/shared-labels";
 import type { PatientRow, RiskFactorsRow } from "../db/patients.js";
 import type { ReportRow, ReportWithArteries } from "../db/reports.js";
@@ -504,13 +503,8 @@ export async function buildReportPdf(
   }
   // Inline "label : a, b, c" rather than a bulleted column — the doctor reads
   // this as one line of history, not as a checklist.
-  const activeRiskFactors = RISK_FACTOR_KEYS.filter(
-    (key) => riskFactors?.[key] === 1,
-  );
   const riskFactorList =
-    activeRiskFactors.length === 0
-      ? "Aucun antécédent renseigné."
-      : activeRiskFactors.map((key) => RISK_FACTOR_LABELS[key]).join(", ");
+    formatRiskFactorList(riskFactors) ?? "Aucun antécédent renseigné.";
   drawWrapped(`Bilan vasculaire : ${riskFactorList}`, 10);
   y -= LINE_HEIGHT / 2;
 

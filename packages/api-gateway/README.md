@@ -241,7 +241,8 @@ Body: any subset omitted defaults to `""` (or `null` for `mindray_service_date`)
 Read-only, used by the standalone `packages/dicom-bridge` DICOM SCP (see its
 README) — nothing in this app calls it. `date` must be a real calendar date.
 
-- `200` → patients whose `exam_date` matches, ordered by `created_at`: `[{ id, first_name, last_name, dob, sex, exam_date, accession_number, created_at, updated_at }, ...]` (empty array if none match)
+- `200` → patients whose `exam_date` matches, ordered by `created_at`: `[{ id, first_name, last_name, dob, sex, exam_date, accession_number, created_at, updated_at, additional_patient_history }, ...]` (empty array if none match)
+  - `additional_patient_history` — the patient's latest risk-factors entry as one French line (`"Diabète, HTA, Tabagisme"`), built by `formatRiskFactorList` from `shared-labels` — the same text and order as the report PDF's "Bilan vasculaire" line. `null` when no factor is set. The bridge maps it to DICOM `AdditionalPatientHistory` (0010,21B0).
 - `400` → `DATE_INVALID` (missing, malformed, or calendar-invalid date)
 
 ## Out of scope (do not assume these exist)

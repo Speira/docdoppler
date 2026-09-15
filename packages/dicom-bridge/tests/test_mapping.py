@@ -12,6 +12,7 @@ def _patient(**overrides) -> dict:
         "sex": "M",
         "exam_date": "2026-08-12",
         "accession_number": "20260812-001",
+        "additional_patient_history": None,
     }
     base.update(overrides)
     return base
@@ -46,6 +47,18 @@ def test_maps_specific_character_set_for_accented_french_names():
     ds = patient_to_worklist_item(_patient(last_name="Bénédicte", first_name="François"))
     assert ds.SpecificCharacterSet == "ISO_IR 100"
     assert ds.PatientName == "Bénédicte^François"
+
+
+def test_maps_additional_patient_history_from_risk_factor_text():
+    ds = patient_to_worklist_item(
+        _patient(additional_patient_history="Diabète, HTA, Tabagisme")
+    )
+    assert ds.AdditionalPatientHistory == "Diabète, HTA, Tabagisme"
+
+
+def test_omits_additional_patient_history_when_no_risk_factor_is_set():
+    ds = patient_to_worklist_item(_patient(additional_patient_history=None))
+    assert "AdditionalPatientHistory" not in ds
 
 
 def test_maps_scheduled_station_aet_from_config():

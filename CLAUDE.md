@@ -23,12 +23,16 @@
 ## Screens
 
 0. Homepage (`/`, implemented 2026-08-24): landing page with cards linking to Patients/Rapports/Paramètres + light stats (patient count, patients with a report, settings configured); global `SiteHeader`/`SiteFooter` (app name "DocDoppler") wrap every route via `routes/__root.tsx`
-1. Secretary intake: patient identity + medical history form — `/patients/add` creates, `/patients/$patientId` edits (split 2026-09-02; the old `/patients/add?id=N` still 301s to the new URL via `beforeLoad`, and `PatientEditHelper.parsePatientId` validates the path param — a non-numeric or unknown-shaped id renders `PatientNotFound`, an unknown-but-valid id surfaces the API's `PATIENT_NOT_FOUND` through `RouteError`). Patient list is `/patients`, merged 2026-09-01 with report status/actions (see below) and a `?reportFilter=all|with|without` filter; `/reports` redirects here. The edit screen also shows a paginated "Historique des rapports" list (first 3 — `patientReportHistoryPageSize` — with "Voir plus" paging in the rest; header count is the server-side total) — `GET /patients/:id/reports` is bounded and slim since 2026-09-02, see `packages/api-gateway/README.md`.
+1. Secretary intake: patient identity + medical history form — `/patients/add` creates (and returns to the `/patients` list after a successful save, since 2026-09-11), `/patients/$patientId` edits (split 2026-09-02; the old `/patients/add?id=N` still 301s to the new URL via `beforeLoad`, and `PatientEditHelper.parsePatientId` validates the path param — a non-numeric or unknown-shaped id renders `PatientNotFound`, an unknown-but-valid id surfaces the API's `PATIENT_NOT_FOUND` through `RouteError`). Patient list is `/patients`, merged 2026-09-01 with report status/actions (see below) and a `?reportFilter=all|with|without` filter; `/reports` redirects here. The edit screen also shows a paginated "Historique des rapports" list (first 3 — `patientReportHistoryPageSize` — with "Voir plus" paging in the rest; header count is the server-side total) — `GET /patients/:id/reports` is bounded and slim since 2026-09-02, see `packages/api-gateway/README.md`.
    Create and edit share `PatientEditorFrame` (header, form, sticky action bar, both confirmation dialogs) and `usePatientUnsavedGuard`; they differ only in copy, submit behaviour and the edit-only extras (report history, delete). Reworked 2026-09-02 alongside the list: island panels, two-column identity grid via container queries, risk factors as palm-tinted toggle cards in `<fieldset>`s, patient name as the `<h1>` (from the saved baseline, not the live field), and a sticky save bar so the primary action is never off-screen.
+   Date fields (2026-09-11): the shared `Input` no longer calls `showPicker()` on click — the calendar popup grabbed the keyboard, so typing into any native date field was silently swallowed; the calendar now opens from the field's icon only. Date of birth stays a native date input like the exam date (a three-box Jour/Mois/Année variant was tried and rejected by the user); its schema adds "invalide" (`DateOfBirthHelper.isRealIsoDate`) and a year ≥ 1900 rule on top of "requise"/"pas dans le futur". Native date fields display in the browser's locale order, not necessarily jj/mm/aaaa.
    The list table was redesigned 2026-09-02: identity, date of birth, age, sex and file number collapse into one
    name-led column (the name is the link to the patient file — the per-row "Modifier" button is gone, and the row itself is
-   no longer a click target, so no `stopPropagation` juggling); the exam-date header is a three-state sort (asc → desc →
-   API order) carrying `aria-sort`; report status is a chip plus a `--palm` rail in the row's left gutter
+   no longer a click target, so no `stopPropagation` juggling); rows are grouped into exam-day sections (2026-09-11,
+   replacing a three-state exam-date sort whose default "API order" was alphabetical and looked broken):
+   Aujourd'hui → À venir (soonest first) → Précédents (most recent first), same-day patients alphabetical via an
+   `Intl.Collator('fr')` (case/accent-insensitive, unlike SQLite's ORDER BY), empty sections hidden, one `<tbody>` +
+   `<th scope="rowgroup">` per section — `PatientListHelper.groupByExamDay` / `todayIso` (local day, not UTC); report status is a chip plus a `--palm` rail in the row's left gutter
    (`.patient-row` in `styles.css`), and its column folds into the name cell below `lg`; action labels collapse to icons
    below `sm`, so the table fits a 390px viewport without horizontal scroll. Empty results distinguish "no patients yet"
    from "nothing matches the current search/filter" (`PatientListHelper.emptyState`). Note the global `a` rule in
@@ -84,11 +88,21 @@
   re-runs on every connection — with Flux derived from Spectre via `fluxForSpectre` in
   `shared-labels`. Supersedes the 2026-08-31 "no structured per-artery fields" deferral for MI
   only; TSA stays free-text. See docs/report-module.md's 2026-09-01 revision.
-- DICOM Worklist bridge: see docs/dicom-worklist-bridge.md — the standalone SCP
-  (`packages/dicom-bridge`) and its `GET /worklist` endpoint on `api-gateway` are
-  implemented and tested, but DO NOT wire this into the main app (no "save
-  patient" → push) until explicitly instructed; bridge is unvalidated against
-  the real Mindray unit (see file for status)
+- DICOM bridge: see docs/dicom-worklist-bridge.md — two standalone SCPs in
+  `packages/dicom-bridge`, both gated. (1) Modality Worklist SCP
+  (`dicom_bridge.run`, `DOCDOPPLER:11112`) + its `GET /worklist` endpoint on
+  `api-gateway` — implemented, and C-ECHO/C-FIND/exam-start confirmed on-site
+  2026-09-01. Since 2026-09-11 worklist items also carry the risk factors as
+  `AdditionalPatientHistory` (0010,21B0) — text built API-side by
+  `formatRiskFactorList` in `shared-labels` (shared with the PDF), the bridge
+  only copies it; ME8 display of that tag is unverified. (2) Storage SCP (`dicom_bridge.run_store`, `DOCDOPPLER-STORE:11113`,
+  added 2026-09-06) — accepts Comprehensive SR Storage over C-STORE and saves the
+  raw file to `data/received_sr/<StudyInstanceUID>/<SOPInstanceUID>.dcm`; it does
+  **not** parse the SR, that is a separate task. Confirmed end-to-end against the
+  real ME8 2026-09-11 (Comprehensive SR, TID 5100); the export's contents do not
+  map cleanly onto `reports` fields — read the bridge README before parsing.
+  DO NOT wire either into the main app
+  (no "save patient" → push, no SR → report import) until explicitly instructed.
 
 ## Working style
 

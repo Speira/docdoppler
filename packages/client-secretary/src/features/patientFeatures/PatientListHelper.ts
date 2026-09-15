@@ -13,8 +13,21 @@ export type PatientWithReportStatus = PatientRecord & { latestReportId: number |
 
 export type ReportStatusFilter = 'all' | 'with' | 'without'
 
-/** `null` means "unsorted": the list keeps the order the API returned. */
-export type ExamDateSort = 'asc' | 'desc' | null
+export type ExamDaySection = 'today' | 'upcoming' | 'past'
+
+export type ExamDayGroup<T> = { section: ExamDaySection; patients: T[] }
+
+// Base sensitivity: "martin" sorts with "Martin" and "Élise" with "Elise",
+// which SQLite's byte-wise ORDER BY does not do.
+const nameCollator = new Intl.Collator('fr', { sensitivity: 'base' })
+
+function compareNames(a: PatientRecord, b: PatientRecord): number {
+  return (
+    nameCollator.compare(a.last_name, b.last_name) ||
+    nameCollator.compare(a.first_name, b.first_name) ||
+    a.id - b.id
+  )
+}
 
 /**
  * Why the table body has no rows: nothing has been recorded yet, or the
@@ -66,25 +79,45 @@ export class PatientListHelper {
     return value === 'with' || value === 'without' ? value : 'all'
   }
 
-  static sortByExamDate<T extends PatientRecord>(patients: T[], sort: ExamDateSort): T[] {
-    if (!sort) return patients
-    const factor = sort === 'asc' ? 1 : -1
-    // ISO dates sort correctly as plain strings; Array#sort is stable, so
-    // patients sharing an exam date keep the order the API returned.
-    return [...patients].sort((a, b) => factor * a.exam_date.localeCompare(b.exam_date))
+  /**
+   * The list's only ordering: today's patients first (the day's work), then
+   * upcoming exams soonest first, then past exams most recent first. Patients
+   * sharing a day are alphabetical. Empty sections are left out, so the
+   * caller renders exactly what it gets.
+   */
+  static groupByExamDay<T extends PatientRecord>(
+    patients: T[],
+    today: string,
+  ): ExamDayGroup<T>[] {
+    const sections: Record<ExamDaySection, T[]> = { today: [], upcoming: [], past: [] }
+    for (const patient of patients) {
+      // ISO dates compare correctly as plain strings.
+      if (patient.exam_date === today) sections.today.push(patient)
+      else if (patient.exam_date > today) sections.upcoming.push(patient)
+      else sections.past.push(patient)
+    }
+
+    sections.today.sort(compareNames)
+    sections.upcoming.sort(
+      (a, b) => a.exam_date.localeCompare(b.exam_date) || compareNames(a, b),
+    )
+    sections.past.sort(
+      (a, b) => b.exam_date.localeCompare(a.exam_date) || compareNames(a, b),
+    )
+
+    return (['today', 'upcoming', 'past'] as const)
+      .map((section) => ({ section, patients: sections[section] }))
+      .filter((group) => group.patients.length > 0)
   }
 
-  /** Cycles ascending → descending → unsorted, so the API order stays reachable. */
-  static nextExamDateSort(sort: ExamDateSort): ExamDateSort {
-    if (sort === 'asc') return 'desc'
-    if (sort === 'desc') return null
-    return 'asc'
-  }
-
-  static examDateAriaSort(sort: ExamDateSort): 'ascending' | 'descending' | 'none' {
-    if (sort === 'asc') return 'ascending'
-    if (sort === 'desc') return 'descending'
-    return 'none'
+  /**
+   * Today as `yyyy-mm-dd` in local time. `toISOString()` would give the UTC
+   * day, which in France is still yesterday until 01:00 or 02:00.
+   */
+  static todayIso(now: Date = new Date()): string {
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${now.getFullYear()}-${month}-${day}`
   }
 
   static hasActiveFilters(query: string, filter: ReportStatusFilter): boolean {

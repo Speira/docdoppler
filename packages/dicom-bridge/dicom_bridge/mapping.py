@@ -11,6 +11,11 @@ def patient_to_worklist_item(patient: dict) -> Dataset:
     dataset.PatientID = str(patient["id"])
     dataset.PatientBirthDate = patient["dob"].replace("-", "")
     dataset.PatientSex = patient["sex"]
+    # Risk factors, preformatted by api-gateway from shared-labels (same line
+    # as the report PDF's "Bilan vasculaire"). null means none is set: leave
+    # the tag out rather than send an empty history.
+    if patient.get("additional_patient_history"):
+        dataset.AdditionalPatientHistory = patient["additional_patient_history"]
     dataset.AccessionNumber = patient["accession_number"]
     dataset.RequestedProcedureID = patient["accession_number"]
     # entropy_srcs keys the UID off the accession number so repeated queries

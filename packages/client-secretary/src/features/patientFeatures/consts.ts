@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { DateOfBirthHelper } from './DateOfBirthHelper'
 import type { PatientFormValues } from './types'
 
 export function getPatientFormDefaultValues(): PatientFormValues {
@@ -59,12 +60,24 @@ export const patientHistoryFieldGroups: { title: string; fields: HistoryField[] 
 export const patientFormSchema = z.object({
   first_name: z.string().trim().min(1, 'Le prénom est requis.'),
   last_name: z.string().trim().min(1, 'Le nom est requis.'),
+  // Each rule only speaks up once the previous one is satisfied, so the field
+  // shows a single, relevant message rather than "requise, invalide, …".
   dob: z
     .string()
     .min(1, 'La date de naissance est requise.')
-    .refine((value) => value <= new Date().toISOString().slice(0, 10), {
-      message: 'La date de naissance ne peut pas être dans le futur.',
-    }),
+    .refine((value) => !value || DateOfBirthHelper.isRealIsoDate(value), {
+      message: 'La date de naissance est invalide.',
+    })
+    .refine(
+      (value) => !DateOfBirthHelper.isRealIsoDate(value) || value >= '1900-01-01',
+      { message: "L'année de naissance doit être 1900 ou après." },
+    )
+    .refine(
+      (value) =>
+        !DateOfBirthHelper.isRealIsoDate(value) ||
+        value <= new Date().toISOString().slice(0, 10),
+      { message: 'La date de naissance ne peut pas être dans le futur.' },
+    ),
   exam_date: z.string().min(1, "La date de l'examen est requise."),
   sex: z.enum(['M', 'F', 'O']),
   diabetes: z.boolean(),

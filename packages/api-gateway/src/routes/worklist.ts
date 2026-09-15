@@ -1,6 +1,10 @@
 import { Router, type Request, type Response } from "express";
 import type Database from "better-sqlite3";
-import { listPatientsByExamDate } from "../db/patients.js";
+import { formatRiskFactorList } from "@speira-docdoppler/shared-labels";
+import {
+  getLatestRiskFactors,
+  listPatientsByExamDate,
+} from "../db/patients.js";
 import { validateWorklistQuery } from "../validation/worklist.js";
 
 export function createWorklistRouter(db: Database.Database): Router {
@@ -12,7 +16,13 @@ export function createWorklistRouter(db: Database.Database): Router {
       res.status(400).json({ error: result.error });
       return;
     }
-    res.status(200).json(listPatientsByExamDate(db, result.date));
+    const items = listPatientsByExamDate(db, result.date).map((patient) => ({
+      ...patient,
+      additional_patient_history: formatRiskFactorList(
+        getLatestRiskFactors(db, patient.id),
+      ),
+    }));
+    res.status(200).json(items);
   });
 
   return router;

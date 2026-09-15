@@ -20,7 +20,7 @@ export function PatientCreate() {
 
   const form = usePatientForm(getPatientFormDefaultValues(), async (values) => {
     try {
-      const id = await PatientCreateHelper.createPatient(values)
+      await PatientCreateHelper.createPatient(values)
       toast.success(
         PatientListHelper.formatFullName({
           first_name: values.first_name.trim(),
@@ -29,7 +29,7 @@ export function PatientCreate() {
         { description: t('Patient enregistré') },
       )
       bypassUnsavedGuard.current = true
-      navigate({ to: '/patients/$patientId', params: { patientId: String(id) } })
+      navigate({ to: '/patients' })
     } catch (error) {
       toast.error(t('Échec de l’enregistrement'), {
         description: t(apiErrorMessage(error)),

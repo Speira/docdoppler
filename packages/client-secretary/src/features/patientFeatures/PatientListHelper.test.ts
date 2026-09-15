@@ -118,49 +118,90 @@ describe('PatientListHelper.filterPatients (generic)', () => {
   })
 })
 
-describe('PatientListHelper.sortByExamDate', () => {
-  const older = { ...patient(1, { exam_date: '2026-01-05' }), latestReportId: null }
-  const newer = { ...patient(2, { exam_date: '2026-08-25' }), latestReportId: null }
+describe('PatientListHelper.groupByExamDay', () => {
+  const today = '2026-09-11'
+  const ids = (groups: { patients: PatientRecord[] }[]) =>
+    groups.map((group) => group.patients.map((p) => p.id))
 
-  it('returns the list untouched when unsorted', () => {
-    const list = [newer, older]
-    expect(PatientListHelper.sortByExamDate(list, null)).toBe(list)
+  it('splits patients into today, upcoming and past, in that order', () => {
+    const past = patient(1, { exam_date: '2026-09-10' })
+    const upcoming = patient(2, { exam_date: '2026-09-12' })
+    const onToday = patient(3, { exam_date: today })
+
+    const groups = PatientListHelper.groupByExamDay([past, upcoming, onToday], today)
+
+    expect(groups.map((group) => group.section)).toEqual(['today', 'upcoming', 'past'])
+    expect(ids(groups)).toEqual([[3], [2], [1]])
   })
 
-  it('sorts oldest first for "asc"', () => {
-    expect(PatientListHelper.sortByExamDate([newer, older], 'asc')).toEqual([older, newer])
+  it('lists upcoming exams soonest first and past exams most recent first', () => {
+    const groups = PatientListHelper.groupByExamDay(
+      [
+        patient(1, { exam_date: '2026-09-30' }),
+        patient(2, { exam_date: '2026-09-15' }),
+        patient(3, { exam_date: '2026-08-01' }),
+        patient(4, { exam_date: '2026-09-01' }),
+      ],
+      today,
+    )
+
+    expect(ids(groups)).toEqual([
+      [2, 1],
+      [4, 3],
+    ])
   })
 
-  it('sorts most recent first for "desc"', () => {
-    expect(PatientListHelper.sortByExamDate([older, newer], 'desc')).toEqual([newer, older])
+  it('orders patients sharing an exam day by surname then first name, ignoring case and accents', () => {
+    const groups = PatientListHelper.groupByExamDay(
+      [
+        patient(1, { exam_date: today, last_name: 'martin', first_name: 'Luc' }),
+        patient(2, { exam_date: today, last_name: 'Zola', first_name: 'Émile' }),
+        patient(3, { exam_date: today, last_name: 'Élise', first_name: 'Anne' }),
+        patient(4, { exam_date: today, last_name: 'Dupont', first_name: 'Paul' }),
+        patient(5, { exam_date: today, last_name: 'Dupont', first_name: 'anne' }),
+      ],
+      today,
+    )
+
+    expect(ids(groups)).toEqual([[5, 4, 3, 1, 2]])
   })
 
-  it('does not mutate the input list', () => {
-    const list = [newer, older]
-    PatientListHelper.sortByExamDate(list, 'asc')
-    expect(list).toEqual([newer, older])
+  it('falls back to the file number for identical names on the same day', () => {
+    const groups = PatientListHelper.groupByExamDay(
+      [patient(9, { exam_date: today }), patient(4, { exam_date: today })],
+      today,
+    )
+
+    expect(ids(groups)).toEqual([[4, 9]])
   })
 
-  it('keeps the API order for patients sharing an exam date', () => {
-    const first = { ...patient(7, { exam_date: '2026-03-01' }), latestReportId: null }
-    const second = { ...patient(8, { exam_date: '2026-03-01' }), latestReportId: null }
-    expect(PatientListHelper.sortByExamDate([first, second], 'asc')).toEqual([first, second])
+  it('leaves out sections with no patients', () => {
+    const groups = PatientListHelper.groupByExamDay(
+      [patient(1, { exam_date: '2026-09-01' })],
+      today,
+    )
+
+    expect(groups.map((group) => group.section)).toEqual(['past'])
+    expect(PatientListHelper.groupByExamDay([], today)).toEqual([])
+  })
+
+  it('keeps extra fields and does not mutate the input list', () => {
+    const later = { ...patient(1, { exam_date: '2026-09-01' }), latestReportId: 42 }
+    const sooner = { ...patient(2, { exam_date: '2026-09-05' }), latestReportId: null }
+    const list = [later, sooner]
+
+    const groups = PatientListHelper.groupByExamDay(list, today)
+
+    expect(groups[0].patients).toEqual([sooner, later])
+    expect(list).toEqual([later, sooner])
   })
 })
 
-describe('PatientListHelper.nextExamDateSort', () => {
-  it('cycles unsorted → ascending → descending → unsorted', () => {
-    expect(PatientListHelper.nextExamDateSort(null)).toBe('asc')
-    expect(PatientListHelper.nextExamDateSort('asc')).toBe('desc')
-    expect(PatientListHelper.nextExamDateSort('desc')).toBeNull()
-  })
-})
-
-describe('PatientListHelper.examDateAriaSort', () => {
-  it('maps the sort state onto the aria-sort values', () => {
-    expect(PatientListHelper.examDateAriaSort('asc')).toBe('ascending')
-    expect(PatientListHelper.examDateAriaSort('desc')).toBe('descending')
-    expect(PatientListHelper.examDateAriaSort(null)).toBe('none')
+describe('PatientListHelper.todayIso', () => {
+  it("uses the clinic's local calendar day, not the UTC one", () => {
+    // 00:30 local time is still the previous day in UTC for France (UTC+1/+2).
+    expect(PatientListHelper.todayIso(new Date(2026, 8, 11, 0, 30))).toBe('2026-09-11')
+    expect(PatientListHelper.todayIso(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05')
   })
 })
 

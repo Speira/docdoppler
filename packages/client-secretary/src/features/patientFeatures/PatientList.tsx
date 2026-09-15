@@ -1,8 +1,5 @@
 import { Link } from '@tanstack/react-router'
 import {
-  ArrowDown,
-  ArrowUp,
-  ChevronsUpDown,
   Eye,
   FilePlus,
   Search,
@@ -16,7 +13,7 @@ import { useTranslation } from 'react-i18next'
 
 import { PatientListHelper } from './PatientListHelper'
 import type {
-  ExamDateSort,
+  ExamDaySection,
   PatientListEmptyState,
   PatientWithReportStatus,
   ReportStatusFilter,
@@ -46,6 +43,12 @@ import {
 type Translate = ReturnType<typeof useTranslation>['t']
 
 const COLUMN_COUNT = 4
+
+const SECTION_LABELS: Record<ExamDaySection, string> = {
+  today: "Aujourd'hui",
+  upcoming: 'À venir',
+  past: 'Précédents',
+}
 
 export function PatientList({
   patientsPromise,
@@ -110,13 +113,16 @@ function PatientListView({
   const patients = use(patientsPromise)
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
-  const [examDateSort, setExamDateSort] = useState<ExamDateSort>(null)
 
   const rows = useMemo(() => {
     const byStatus = PatientListHelper.filterByReportStatus(patients, reportFilter)
-    const matching = PatientListHelper.filterPatients(byStatus, query)
-    return PatientListHelper.sortByExamDate(matching, examDateSort)
-  }, [patients, reportFilter, query, examDateSort])
+    return PatientListHelper.filterPatients(byStatus, query)
+  }, [patients, reportFilter, query])
+
+  const groups = useMemo(
+    () => PatientListHelper.groupByExamDay(rows, PatientListHelper.todayIso()),
+    [rows],
+  )
 
   const filtersActive = PatientListHelper.hasActiveFilters(query, reportFilter)
 
@@ -213,21 +219,8 @@ function PatientListView({
               <TableHead scope="col" className="island-kicker py-3 pl-4 whitespace-normal">
                 {t('Patient')}
               </TableHead>
-              <TableHead
-                scope="col"
-                aria-sort={PatientListHelper.examDateAriaSort(examDateSort)}
-                className="py-3 whitespace-normal"
-              >
-                <button
-                  type="button"
-                  className="sort-button island-kicker inline-flex items-start gap-1.5 text-left"
-                  onClick={() =>
-                    setExamDateSort((prev) => PatientListHelper.nextExamDateSort(prev))
-                  }
-                >
-                  {t("Date de l'examen")}
-                  <SortIcon sort={examDateSort} />
-                </button>
+              <TableHead scope="col" className="island-kicker py-3 whitespace-normal">
+                {t("Date de l'examen")}
               </TableHead>
               <TableHead
                 scope="col"
@@ -240,8 +233,8 @@ function PatientListView({
               </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {rows.length === 0 && (
+          {rows.length === 0 && (
+            <TableBody>
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={COLUMN_COUNT} className="p-0">
                   <EmptyState
@@ -255,21 +248,31 @@ function PatientListView({
                   />
                 </TableCell>
               </TableRow>
-            )}
-            {rows.map((patient) => (
-              <PatientRow key={patient.id} patient={patient} t={t} />
-            ))}
-          </TableBody>
+            </TableBody>
+          )}
+          {/* One <tbody> per exam-day section: the rowgroup header tells
+              assistive tech which section each row belongs to. */}
+          {groups.map((group) => (
+            <TableBody key={group.section}>
+              <TableRow className="patient-section hover:bg-transparent">
+                <TableHead
+                  scope="rowgroup"
+                  colSpan={COLUMN_COUNT}
+                  className="island-kicker h-auto py-2 pl-4"
+                >
+                  {t(SECTION_LABELS[group.section])}
+                  <span className="ml-1.5 tabular-nums">· {group.patients.length}</span>
+                </TableHead>
+              </TableRow>
+              {group.patients.map((patient) => (
+                <PatientRow key={patient.id} patient={patient} t={t} />
+              ))}
+            </TableBody>
+          ))}
         </Table>
       </div>
     </div>
   )
-}
-
-function SortIcon({ sort }: { sort: ExamDateSort }) {
-  if (sort === 'asc') return <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
-  if (sort === 'desc') return <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" />
-  return <ChevronsUpDown aria-hidden="true" className="h-3.5 w-3.5 opacity-50" />
 }
 
 function PatientRow({ patient, t }: { patient: PatientWithReportStatus; t: Translate }) {

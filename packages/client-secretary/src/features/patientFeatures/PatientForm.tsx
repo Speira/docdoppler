@@ -110,20 +110,34 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
             {(field) => {
               const showError =
                 field.state.meta.isTouched && !field.state.meta.isValid
-              const age = field.state.value
-                ? PatientListHelper.calculateAge(field.state.value)
-                : null
-              const showMinorWarning =
-                field.state.meta.isValid && age !== null && age < 18
+              const age =
+                field.state.value && field.state.meta.isValid
+                  ? PatientListHelper.calculateAge(field.state.value)
+                  : null
+              const showMinorWarning = age !== null && age < 18
               return (
                 <div className="grid gap-2">
                   <Label htmlFor={field.name}>
                     {t('Date de naissance')} <RequiredMark t={t} />
+                    {age !== null && (
+                      <span
+                        className={
+                          showMinorWarning
+                            ? 'font-normal text-amber-700'
+                            : 'row-meta font-normal'
+                        }
+                      >
+                        {showMinorWarning
+                          ? t('({{age}} ans, mineur)', { age })
+                          : t('({{age}} ans)', { age })}
+                      </span>
+                    )}
                   </Label>
                   <Input
                     id={field.name}
                     name={field.name}
                     type="date"
+                    min="1900-01-01"
                     max={today()}
                     value={field.state.value}
                     onBlur={field.handleBlur}
@@ -134,19 +148,6 @@ export function PatientForm({ form }: { form: PatientFormApi }) {
                   {showError && (
                     <p id={`${field.name}-error`} className="text-sm text-destructive">
                       {fieldErrorText(field.state.meta.errors, t)}
-                    </p>
-                  )}
-                  {!showError && age !== null && field.state.meta.isValid && (
-                    <p
-                      className={
-                        showMinorWarning
-                          ? 'text-sm text-amber-700'
-                          : 'row-meta text-sm'
-                      }
-                    >
-                      {showMinorWarning
-                        ? t('Patient mineur ({{age}} ans)', { age })
-                        : t('{{age}} ans', { age })}
                     </p>
                   )}
                 </div>

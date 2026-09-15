@@ -201,6 +201,13 @@ Still unconfirmed / open:
   - PatientName, PatientID, PatientBirthDate, PatientSex — from identity fields
     (`patients.sex` is stored as `M`/`F`/`O`, already DICOM's own PatientSex codes,
     so it is forwarded verbatim)
+  - AdditionalPatientHistory (0010,21B0, LT) — the patient's latest
+    risk-factors entry as readable French text (`Diabète, HTA, Tabagisme`),
+    preformatted by `GET /worklist` (`additional_patient_history`) using
+    `formatRiskFactorList` from `shared-labels`, so the labels and order match
+    the report PDF's "Bilan vasculaire" line and are not duplicated in Python.
+    Omitted from the dataset when no factor is set. **Unverified** whether the
+    ME8 displays this tag anywhere — on-site check needed
   - AccessionNumber, RequestedProcedureID — from `accession_number`
   - StudyInstanceUID — generated via `pydicom.uid.generate_uid()`, keyed off
     `accession_number` as the entropy source so repeated C-FIND queries for

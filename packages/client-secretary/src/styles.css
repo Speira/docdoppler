@@ -332,6 +332,13 @@ a {
   background: var(--link-bg-hover);
 }
 
+/* Exam-day section header (Aujourd'hui / À venir / Précédents): a tinted
+   band, so the sections read as groups without adding a column. */
+.patient-section > th {
+  background: color-mix(in oklab, var(--line) 35%, transparent);
+  border-block: 1px solid var(--line);
+}
+
 /* `a.row-link`, not `.row-link`: the global `a` rule above is an element +
    attribute selector, so a bare class would lose to it and the patient name
    would render in link teal — too low a contrast for the row's key text. */
@@ -353,23 +360,13 @@ a.row-link:hover {
   text-underline-offset: 3px;
 }
 
-.row-link:focus-visible,
-.sort-button:focus-visible {
+.row-link:focus-visible {
   outline: 2px solid var(--lagoon-deep);
   outline-offset: 3px;
 }
 
 .row-meta {
   color: var(--sea-ink-soft);
-}
-
-.sort-button {
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.sort-button:hover {
-  color: var(--lagoon-deep);
 }
 
 .status-chip {

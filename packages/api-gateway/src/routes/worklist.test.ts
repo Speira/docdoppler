@@ -37,6 +37,38 @@ describe("GET /worklist", () => {
     expect(response.body[0].accession_number).toBe("20260812-001");
   });
 
+  it("sends the latest risk-factors entry as additional_patient_history text", async () => {
+    const created = await supertest(app).post("/patients").send({
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-08-12",
+    });
+    await supertest(app)
+      .post(`/patients/${created.body.id}/risk-factors`)
+      .send({ diabetes: true, hypertension: true });
+    await supertest(app)
+      .post(`/patients/${created.body.id}/risk-factors`)
+      .send({ smoking: true, hypertension: true });
+
+    const response = await supertest(app).get("/worklist?date=2026-08-12");
+    expect(response.body[0].additional_patient_history).toBe("HTA, Tabagisme");
+  });
+
+  it("sends additional_patient_history null when no risk factor is recorded", async () => {
+    await supertest(app).post("/patients").send({
+      first_name: "Jean",
+      last_name: "Dupont",
+      dob: "1958-03-12",
+      sex: "M",
+      exam_date: "2026-08-12",
+    });
+
+    const response = await supertest(app).get("/worklist?date=2026-08-12");
+    expect(response.body[0].additional_patient_history).toBeNull();
+  });
+
   it("returns an empty array when no patients match the date", async () => {
     const response = await supertest(app).get("/worklist?date=2026-08-12");
     expect(response.status).toBe(200);
